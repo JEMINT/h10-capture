@@ -246,6 +246,7 @@ const IN_FRACTION = 0.4;                          // 4 s in / 6 s out at 6/min, 
 // Artefact rule from the spec: flag, never drop.
 const RR_MIN_MS = 300, RR_MAX_MS = 2000, RR_JUMP = 0.20;
 const ROLL_S = 60, SPARK_S = 120;
+const STALL_MS = 5000;   // notifications come every ~1 s; a hole this long means the page was asleep
 
 // ============================================================================
 // 0x2A37 Heart Rate Measurement parser. Pure, so the self-test below can pin
@@ -296,6 +297,7 @@ const S = {
   seg: 0,                  // connection segment; bumps on every (re)connect
   tick: 0,                 // cumulative rr_raw within the segment — exact relative beat time
   lastRR: null,            // previous rr_ms for the 20% rule (across notifications)
+  lastNotif: null,         // arrival of the previous notification, for stall detection
   gapOpen: null,           // {t_start} while disconnected mid-session
   wakeLock: null, breathing: false, breathT0: 0, breathPhase: null, exported: false,
   rate: 6, sweep: null, sound: true, med: false, audio: null, derived: null,
@@ -492,6 +494,21 @@ function onNotification(ev) {
   const tArr = now();
   let p;
   try { p = parseHRM(ev.target.value); } catch (e) { log('bad notification: ' + e.message); return; }
+  // A locked phone (or a backgrounded tab) stops delivering notifications while
+  // the strap keeps beating. Those beats are gone. Record the hole as a gap and
+  // start a new segment, so the tick clock re-anchors instead of drifting.
+  if (S.lastNotif != null && tArr - S.lastNotif > STALL_MS) {
+    const gap = { t_start: iso(S.lastNotif), t_end: iso(tArr), closed_by: 'stall' };
+    S.seg += 1; S.tick = 0; S.lastRR = null;
+    if (S.session && !S.session.ended_at) {
+      S.session.gaps.push(gap);
+      appendEvent({ kind: 'gap', t: tArr, payload: gap });
+      appendEvent({ kind: 'seg', t: tArr, payload: { seg: S.seg, reason: 'stall' } });
+    }
+    log(`STALL ${((tArr - S.lastNotif) / 1000).toFixed(0)} s with no data — phone locked or page asleep; gap recorded, new segment`);
+    banner('warn', `Lost ${((tArr - S.lastNotif) / 1000).toFixed(0)} s of beats — the page was not running (locked phone?). Recorded as a gap. Set Auto-Lock to Never.`, 'stall');
+  }
+  S.lastNotif = tArr;
   const n = p.rrMs.length;
   // Timestamp per RR, not per notification: the last RR ends at arrival; each
   // earlier one ends one RR sooner. Arrival jitter lands on absolute time only —
@@ -756,7 +773,7 @@ async function gattConnect() {
   S.hrChar = await svc.getCharacteristic('heart_rate_measurement');
   await S.hrChar.startNotifications();
   S.hrChar.addEventListener('characteristicvaluechanged', onNotification);
-  S.seg += 1; S.tick = 0; S.lastRR = null;
+  S.seg += 1; S.tick = 0; S.lastRR = null; S.lastNotif = null;
   $('devName').textContent = S.device.name || S.device.id;
   if (S.session && !S.session.ended_at) {
     S.session.device_name = S.session.device_name || S.device.name || null;
@@ -824,6 +841,7 @@ async function requestWakeLock() {
 }
 function releaseWakeLock() { if (S.wakeLock) { S.wakeLock.release().catch(() => {}); S.wakeLock = null; } }
 document.addEventListener('visibilitychange', () => {
+  log('page ' + document.visibilityState);
   if (document.visibilityState === 'visible' && S.session && !S.session.ended_at) requestWakeLock();
 });
 window.addEventListener('beforeunload', (e) => {
