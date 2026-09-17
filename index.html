@@ -236,7 +236,9 @@ const FEELINGS = [
   ['attention_fading', 'attention fading'], ['drowsy', 'drowsy'],
 ];
 const STAGES = ['seated rest', 'paced breathing 6/min', 'standing',
-                'mental arithmetic', 'walking', 'unlabelled', 'other…'];
+                'mental arithmetic', 'walking',
+                'office workshop', 'office meeting', 'coding',      // real-day blocks, not protocol
+                'unlabelled', 'other…'];
 const RATES = [3, 4, 5, 6];                       // breaths/min presets; 'sweep' and custom are added in the UI
 const SWEEP = { rates: [4.5, 5, 5.5, 6, 6.5], stepS: 120 };
 const IN_FRACTION = 0.4;                          // 4 s in / 6 s out at 6/min, same shape at every rate
@@ -301,7 +303,8 @@ const S = {
 };
 const TREND_STEP_S = 5;
 const STAGE_COLOURS = { 'seated rest': '#dff1e3', 'paced breathing 6/min': '#dbe9f6', 'standing': '#fbe8d3',
-                        'mental arithmetic': '#f8dcdc', 'walking': '#e9e0f5', 'unlabelled': '#ececea', 'meditation': '#e6e0f2' };
+                        'mental arithmetic': '#f8dcdc', 'walking': '#e9e0f5', 'unlabelled': '#ececea', 'meditation': '#e6e0f2',
+                        'office workshop': '#f6ecd2', 'office meeting': '#f3e3c6', 'coding': '#e2ecf3' };
 function stageColour(name) { return STAGE_COLOURS[name] || (name.startsWith('paced breathing') ? '#dbe9f6' : '#efe9d6'); }
 const $ = (id) => document.getElementById(id);
 
