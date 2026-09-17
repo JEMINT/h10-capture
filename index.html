@@ -1,0 +1,1170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>H10 Capture</title>
+<style>
+  /* One file, no framework. Plain and legible at arm's length on a phone. */
+  :root {
+    --bg: #f5f4ef; --card: #ffffff; --ink: #1c1c1a; --muted: #6b6a64;
+    --line: #dedcd3; --accent: #1f5f8b; --good: #2c7a4b; --warn: #b26a00;
+    --bad: #b3261e; --suspect: #d9534f;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }   /* author display:flex would otherwise win over the UA rule */
+  html, body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 17px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { padding: 12px 12px calc(24px + env(safe-area-inset-bottom)); max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 4px 0 2px; }
+  .sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px; margin-bottom: 12px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  button { font: inherit; font-size: 18px; min-height: 56px; padding: 10px 16px; border-radius: 12px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; flex: 1 1 auto;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  button:active { transform: scale(0.98); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.danger { color: var(--bad); border-color: var(--bad); }
+  button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  button.small { min-height: 40px; font-size: 15px; padding: 6px 12px; flex: 0 0 auto; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #bbb; display: inline-block; }
+  .dot.on { background: var(--good); } .dot.warn { background: var(--warn); } .dot.off { background: var(--bad); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { background: var(--bg); border-radius: 10px; padding: 8px 10px; }
+  .stat .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .stat .v { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .v small { font-size: 14px; font-weight: 400; color: var(--muted); }
+  .stat.big { grid-column: span 3; }
+  .stat.big .v { font-size: 48px; }
+  .stat.big .v small { font-size: 16px; }
+  canvas { width: 100%; height: 110px; display: block; background: var(--bg); border-radius: 10px; margin-top: 8px; }
+  .banner { border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 15px; }
+  .banner.warn { background: #fff4e0; border: 1px solid #f0c98a; color: #6b4300; }
+  .banner.bad { background: #fde8e6; border: 1px solid #f0a8a2; color: #6b1a14; }
+  .banner.info { background: #e8f1f8; border: 1px solid #b7d2e6; color: #143a55; }
+  .banner button { min-height: 40px; font-size: 15px; margin-top: 6px; }
+  .label-list { list-style: none; margin: 8px 0 0; padding: 0; font-size: 15px; }
+  .label-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
+  .label-list li .t { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .label-list li .x { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .label-list li button { flex: 0 0 auto; min-height: 36px; font-size: 14px; padding: 4px 10px; }
+  input[type=text] { font: inherit; font-size: 17px; min-height: 52px; padding: 8px 12px; border-radius: 12px;
+    border: 1px solid var(--line); flex: 1 1 200px; width: 100%; }
+  .breath { display: flex; flex-direction: column; align-items: center; padding: 8px 0 4px; }
+  .breath .ring { width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, #cfe3f2 0%, #8fbde0 100%);
+    transform: scale(0.55); transition: none; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chips button { min-height: 40px; font-size: 15px; padding: 6px 12px; flex: 0 0 auto; }
+  .chips button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  /* Meditation mode: everything gone except the circle, the cue and three numbers. */
+  .med { position: fixed; inset: 0; z-index: 50; background: #0f1a24; color: #dfe8ef; display: flex; flex-direction: column;
+    justify-content: space-between; padding: max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)); }
+  .med .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
+  .med .chips button { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; }
+  .med .chips button.active { background: #6aa9d8; color: #0f1a24; border-color: #6aa9d8; }
+  .med button.small { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; }
+  .med .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; }
+  .med .ring { width: min(62vw, 320px); height: min(62vw, 320px); border-radius: 50%;
+    background: radial-gradient(circle, #8fc4ea 0%, #2a6f9e 70%, #1b4c6e 100%); transform: scale(0.55); }
+  .med .cue { font-size: 34px; font-weight: 600; margin-top: 22px; min-height: 42px; letter-spacing: .02em; }
+  .med .cnt { font-size: 17px; color: #9fb3c4; font-variant-numeric: tabular-nums; min-height: 22px; }
+  .med .bottom { font-size: 16px; color: #9fb3c4; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.6; }
+  .med .bottom b { color: #fff; font-size: 22px; font-weight: 600; }
+  table.blocks { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; font-variant-numeric: tabular-nums; }
+  table.blocks th, table.blocks td { text-align: right; padding: 4px 6px; border-top: 1px solid var(--line); }
+  table.blocks th:first-child, table.blocks td:first-child { text-align: left; }
+  table.blocks th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; border-top: 0; }
+  .breath .cue { font-size: 24px; font-weight: 600; margin-top: 10px; min-height: 32px; }
+  .breath .cnt { font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--muted);
+    white-space: pre-wrap; word-break: break-all; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 15px; }
+  .rec { color: var(--bad); font-weight: 600; }
+  .muted { color: var(--muted); }
+  @media (max-width: 420px) { .grid { grid-template-columns: repeat(2, 1fr); } .stat.big { grid-column: span 2; } }
+</style>
+</head>
+<body>
+
+<h1>Vagus Listener — H10 capture</h1>
+<p class="sub">Web Bluetooth does not exist in Safari (iOS or macOS). <strong>iPhone: open this page in Bluefy.</strong> Mac: use Chrome. Everything stays on this device — nothing is uploaded.</p>
+
+<div id="banners"></div>
+
+<!-- Connection -->
+<div class="card">
+  <div class="row">
+    <button id="btnConnect" class="primary">Connect H10</button>
+    <button id="btnDisconnect" disabled>Disconnect</button>
+  </div>
+  <div class="row" style="margin-top:8px; justify-content: space-between;">
+    <span class="status"><span id="dot" class="dot"></span><span id="devName">no device</span></span>
+    <span class="status"><span id="connStatus" class="muted">idle</span></span>
+    <span class="status"><span id="battery" class="muted"></span></span>
+  </div>
+</div>
+
+<!-- Live readout -->
+<div class="card">
+  <div class="row" style="justify-content: space-between; margin-bottom: 8px;">
+    <span id="recState" class="muted">not recording</span>
+    <span id="elapsed" class="muted mono">00:00:00</span>
+  </div>
+  <div class="grid">
+    <div class="stat big"><div class="k">RMSSD · last 60 s</div>
+      <div class="v"><span id="rmssd">—</span> <small>ms</small> <small id="rmssdClean"></small></div></div>
+    <div class="stat"><div class="k">BPM</div><div class="v" id="bpm">—</div></div>
+    <div class="stat"><div class="k">last RR</div><div class="v"><span id="lastRR">—</span> <small>ms</small></div></div>
+    <div class="stat"><div class="k">SDNN · 60 s</div><div class="v"><span id="sdnn">—</span> <small>ms</small></div></div>
+    <div class="stat"><div class="k">beats</div><div class="v" id="beats">0</div></div>
+    <div class="stat"><div class="k">suspect</div><div class="v"><span id="suspect">0</span> <small id="suspectPct"></small></div></div>
+    <div class="stat"><div class="k">gaps</div><div class="v" id="gaps">0</div></div>
+    <div class="stat"><div class="k">breathing · derived</div><div class="v"><span id="breath">—</span> <small>/min</small></div></div>
+  </div>
+  <canvas id="spark" width="600" height="110"></canvas>
+</div>
+
+<!-- Session trend: rolling RMSSD + HR over the whole session, stages shaded -->
+<div class="card">
+  <div class="row" style="justify-content: space-between;">
+    <span>Session trend — RMSSD (60 s rolling) with stages</span>
+    <span class="muted" style="font-size:13px;">HR dashed, right axis</span>
+  </div>
+  <canvas id="trend" width="600" height="170" style="height:170px;"></canvas>
+  <div class="muted" style="font-size:13px; margin-top:6px;">Per block, medians of the rolling 60 s values, skipping each block's first minute (window still mixed). Updates every 5 s.</div>
+  <table class="blocks" id="blocks"></table>
+</div>
+
+<!-- Session controls -->
+<div class="card">
+  <div class="row">
+    <button id="btnStart" class="primary">Start session</button>
+    <button id="btnStop" disabled>Stop</button>
+    <button id="btnDiscard" class="danger" disabled>Discard</button>
+  </div>
+  <div class="row" style="margin-top:8px;">
+    <button id="btnJSON" disabled>Export JSON</button>
+    <button id="btnCSV" disabled>Export CSV</button>
+    <button id="btnCopy" class="small" disabled>Copy JSON</button>
+  </div>
+  <div id="sessionId" class="mono" style="margin-top:6px;"></div>
+</div>
+
+<!-- Feeling -->
+<div class="card">
+  <div class="k muted" style="font-size:13px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px;">How I'm feeling — one tap writes a timestamped label</div>
+  <div class="row" id="feelings"></div>
+  <div class="row" style="margin-top:8px;">
+    <input id="note" type="text" placeholder="context: in a review call, after lunch, walking to car…" autocomplete="off">
+    <button id="btnNote" class="small">Add note</button>
+  </div>
+</div>
+
+<!-- Stage -->
+<div class="card">
+  <div class="k muted" style="font-size:13px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px;">Test stage — which protocol block I'm in</div>
+  <div class="row" id="stages"></div>
+  <div class="muted" style="margin-top:6px; font-size:15px;">current: <strong id="curStage">unlabelled</strong> <span id="stageFor" class="mono"></span></div>
+</div>
+
+<!-- Breathing guide -->
+<div class="card">
+  <div class="row" style="justify-content: space-between;">
+    <span>Paced breathing · <span id="rateText">4 s in, 6 s out · 6/min</span></span>
+    <span class="row" style="flex: 0 0 auto;">
+      <button id="btnBreath" class="small">Start guide</button>
+      <button id="btnMed" class="small primary">Meditation mode</button>
+    </span>
+  </div>
+  <div class="chips" id="rates" style="margin-top:8px;"></div>
+  <div class="muted" style="font-size:13px; margin-top:6px;">Starting the guide labels the stage <em>paced breathing N/min</em> for you; stopping it sets <em>unlabelled</em>. <em>sweep</em> steps 4.5 → 6.5/min, 2 min each — the standard search for your own resonance rate. <strong>Meditation mode</strong> starts in <em>free</em>: no pacing, sit as long as you like, breathing rate is derived from the heart and the stage is labelled <em>meditation</em>.</div>
+  <div class="breath" id="breathBox" hidden>
+    <div class="ring"></div>
+    <div class="cue">—</div>
+    <div class="cnt"></div>
+  </div>
+</div>
+
+<!-- Meditation mode overlay -->
+<div class="med" id="med" hidden>
+  <div class="top">
+    <div class="chips" id="medRates"></div>
+    <span class="row" style="flex: 0 0 auto; gap: 6px;">
+      <button id="medSound" class="small">sound: on</button>
+      <button id="medExit" class="small">Exit</button>
+    </span>
+  </div>
+  <div class="mid">
+    <div class="ring"></div>
+    <div class="cue">—</div>
+    <div class="cnt"></div>
+    <div class="cnt" id="sweepText"></div>
+    <div class="cnt" id="derivedText" style="margin-top:14px; font-size:19px; color:#dfe8ef;"></div>
+  </div>
+  <div class="bottom">
+    RMSSD <b id="medRmssd">—</b> ms &nbsp;·&nbsp; SDNN <b id="medSdnn">—</b> ms &nbsp;·&nbsp; HR <b id="medHr">—</b><br>
+    <span id="medStage">—</span> <span id="medStageFor"></span> &nbsp;·&nbsp; session <span id="medElapsed">00:00:00</span> &nbsp;·&nbsp; <span id="medRec"></span>
+  </div>
+</div>
+
+<!-- Labels -->
+<div class="card">
+  <div class="row" style="justify-content: space-between;">
+    <span>Labels this session</span><span id="labelCount" class="muted">0</span>
+  </div>
+  <ul class="label-list" id="labelList"></ul>
+</div>
+
+<details class="card">
+  <summary>Event log</summary>
+  <div id="log" class="mono" style="margin-top:8px; max-height: 220px; overflow:auto;"></div>
+</details>
+
+<script>
+'use strict';
+// ============================================================================
+// Vocabulary — must match src/classifier.py STATES exactly. Display text may
+// have a space; the exported value never does.
+// ============================================================================
+const FEELINGS = [
+  ['calm', 'calm'], ['stress', 'stress'], ['overload', 'overload'],
+  ['attention_fading', 'attention fading'], ['drowsy', 'drowsy'],
+];
+const STAGES = ['seated rest', 'paced breathing 6/min', 'standing',
+                'mental arithmetic', 'walking', 'unlabelled', 'other…'];
+const RATES = [3, 4, 5, 6];                       // breaths/min presets; 'sweep' and custom are added in the UI
+const SWEEP = { rates: [4.5, 5, 5.5, 6, 6.5], stepS: 120 };
+const IN_FRACTION = 0.4;                          // 4 s in / 6 s out at 6/min, same shape at every rate
+
+// Artefact rule from the spec: flag, never drop.
+const RR_MIN_MS = 300, RR_MAX_MS = 2000, RR_JUMP = 0.20;
+const ROLL_S = 60, SPARK_S = 120;
+
+// ============================================================================
+// 0x2A37 Heart Rate Measurement parser. Pure, so the self-test below can pin
+// the two things that silently go wrong: the flag layout and the RR unit.
+// ============================================================================
+function parseHRM(dv) {
+  const flags = dv.getUint8(0);
+  let off = 1, hr;
+  if (flags & 0x01) { hr = dv.getUint16(off, true); off += 2; }   // bit 0: uint16 HR
+  else              { hr = dv.getUint8(off);        off += 1; }
+  const contactSupported = !!(flags & 0x04), contact = !!(flags & 0x02);
+  let energy = null;
+  if (flags & 0x08) { energy = dv.getUint16(off, true); off += 2; } // bit 3: energy expended
+  const rrRaw = [];
+  if (flags & 0x10) {                                                // bit 4: RR present
+    while (off + 2 <= dv.byteLength) { rrRaw.push(dv.getUint16(off, true)); off += 2; }
+  }
+  // RR is in 1/1024 s, NOT milliseconds. ~2.4% error if you assume ms.
+  const rrMs = rrRaw.map(r => r * 1000 / 1024);
+  return { hr, rrRaw, rrMs, contactSupported, contact, energy };
+}
+
+// Vectors mirrored in tests/test_h10_capture.py — keep the two in sync.
+function selfTest() {
+  const V = (bytes) => parseHRM(new DataView(Uint8Array.from(bytes).buffer));
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const checks = [
+    () => { const r = V([0x10, 0x3C, 0x5B, 0x03, 0x60, 0x03]);
+            return r.hr === 60 && r.rrRaw.join() === '859,864' && near(r.rrMs[0], 838.8671875); },
+    () => { const r = V([0x11, 0x3C, 0x00, 0x5B, 0x03]); return r.hr === 60 && r.rrRaw.join() === '859'; },
+    () => { const r = V([0x18, 0x3C, 0x10, 0x00, 0x5B, 0x03]); return r.energy === 16 && r.rrRaw.join() === '859'; },
+    () => { const r = V([0x00, 0x3C]); return r.hr === 60 && r.rrRaw.length === 0; },
+    () => { const r = V([0x16, 0x3C, 0x00, 0x04]); return r.contact && near(r.rrMs[0], 1000.0); },
+    () => { const r = V([0x10, 0x3C, 0x5B, 0x03, 0x60]); return r.rrRaw.join() === '859'; }, // trailing odd byte ignored
+  ];
+  const failed = checks.map((f, i) => { try { return f() ? -1 : i; } catch (e) { return i; } }).filter(i => i >= 0);
+  if (failed.length) banner('bad', `Parser self-test FAILED (cases ${failed.join(', ')}). Do not trust any number on this page.`);
+  return failed.length === 0;
+}
+
+// ============================================================================
+// State
+// ============================================================================
+const S = {
+  device: null, server: null, hrChar: null, wantConnected: false, reconnecting: false,
+  session: null,           // active or stopped-but-unexported session
+  live: [],                // beats for the readout whether or not recording: {t, rr_ms, rr_raw, suspect}
+  seg: 0,                  // connection segment; bumps on every (re)connect
+  tick: 0,                 // cumulative rr_raw within the segment — exact relative beat time
+  lastRR: null,            // previous rr_ms for the 20% rule (across notifications)
+  gapOpen: null,           // {t_start} while disconnected mid-session
+  wakeLock: null, breathing: false, breathT0: 0, breathPhase: null, exported: false,
+  rate: 6, sweep: null, sound: true, med: false, audio: null, derived: null,
+  trend: [], trendCursor: 0, trendStart: 0,   // rolling-RMSSD points every TREND_STEP_S, rebuilt on recovery
+};
+const TREND_STEP_S = 5;
+const STAGE_COLOURS = { 'seated rest': '#dff1e3', 'paced breathing 6/min': '#dbe9f6', 'standing': '#fbe8d3',
+                        'mental arithmetic': '#f8dcdc', 'walking': '#e9e0f5', 'unlabelled': '#ececea', 'meditation': '#e6e0f2' };
+function stageColour(name) { return STAGE_COLOURS[name] || (name.startsWith('paced breathing') ? '#dbe9f6' : '#efe9d6'); }
+const $ = (id) => document.getElementById(id);
+
+// ============================================================================
+// Persistence — IndexedDB, append-only events replayed on recovery.
+// Append-only means a crash mid-write loses at most one notification, and
+// label deletion is itself an event, so replay never has to reconcile.
+// ============================================================================
+let dbp = null;
+function db() {
+  if (dbp) return dbp;
+  dbp = new Promise((res, rej) => {
+    if (!('indexedDB' in window)) return rej(new Error('IndexedDB unavailable'));
+    const r = indexedDB.open('h10capture', 1);
+    r.onupgradeneeded = (e) => {
+      const d = e.target.result;
+      d.createObjectStore('meta', { keyPath: 'session_id' });
+      d.createObjectStore('events', { autoIncrement: true }).createIndex('sid', 'sid');
+    };
+    r.onsuccess = (e) => res(e.target.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbp;
+}
+async function putMeta(meta) {
+  const d = await db();
+  await new Promise((res, rej) => { const tx = d.transaction('meta', 'readwrite'); tx.objectStore('meta').put(meta);
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+}
+async function appendEvent(ev) {
+  if (!S.session) return;
+  ev.sid = S.session.session_id;
+  try {
+    const d = await db();
+    await new Promise((res, rej) => { const tx = d.transaction('events', 'readwrite'); tx.objectStore('events').add(ev);
+      tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+  } catch (e) { banner('bad', 'Persistence failed: ' + e.message + ' — export as soon as you can.'); }
+}
+async function readEvents(sid) {
+  const d = await db();
+  return new Promise((res, rej) => { const req = d.transaction('events').objectStore('events').index('sid').getAll(sid);
+    req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
+}
+async function allMeta() {
+  const d = await db();
+  return new Promise((res, rej) => { const req = d.transaction('meta').objectStore('meta').getAll();
+    req.onsuccess = () => res(req.result); req.onerror = () => rej(req.error); });
+}
+async function deleteSession(sid) {
+  const d = await db();
+  await new Promise((res, rej) => {
+    const tx = d.transaction(['meta', 'events'], 'readwrite');
+    tx.objectStore('meta').delete(sid);
+    const cur = tx.objectStore('events').index('sid').openKeyCursor(IDBKeyRange.only(sid));
+    cur.onsuccess = (e) => { const c = e.target.result; if (c) { tx.objectStore('events').delete(c.primaryKey); c.continue(); } };
+    tx.oncomplete = res; tx.onerror = () => rej(tx.error);
+  });
+}
+
+// ============================================================================
+// Session model — mirrors src/session_store.py where a browser can.
+// ============================================================================
+function platformString() {
+  const ua = navigator.userAgent;
+  const iOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (iOS) return /Bluefy/i.test(ua) ? 'ios-bluefy' : (navigator.bluetooth ? 'ios-webble' : 'ios-no-webbluetooth');
+  if (/Mac/.test(ua)) return /Edg\//.test(ua) ? 'macos-edge' : (/Chrome\//.test(ua) ? 'macos-chrome' : 'macos-other');
+  return /Chrome\//.test(ua) ? 'other-chrome' : 'other';
+}
+function newSessionId() {
+  // Same shape SessionStore uses: YYYYMMDDTHHMMSSZ-xxxxxx, so ingestion keeps it.
+  const d = new Date(), p = (n) => String(n).padStart(2, '0');
+  const stamp = `${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}T${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z`;
+  return stamp + '-' + Math.random().toString(16).slice(2, 8);
+}
+function newSession() {
+  return {
+    schema: 'h10-capture-v1',
+    session_id: newSessionId(),
+    started_at: new Date().toISOString(),
+    ended_at: null,
+    device: 'polar-h10',
+    device_name: S.device ? S.device.name : null,
+    platform: platformString(),
+    user_agent: navigator.userAgent,
+    tz_offset_min: -new Date().getTimezoneOffset(),
+    rr_unit_note: 'rr_raw is 1/1024 s from the BLE HRM characteristic; rr_ms = rr_raw*1000/1024',
+    rr: [], hr: [], labels: [], stages: [], gaps: [],
+  };
+}
+function iso(ms) { return new Date(ms).toISOString(); }
+function now() { return Date.now(); }
+
+async function startSession() {
+  if (S.session && !S.session.ended_at) return;
+  if (S.session && !S.exported && S.session.rr.length &&
+      !confirm('Previous session was not exported. Start a new one anyway? (it stays recoverable in this browser)')) return;
+  S.session = newSession();
+  S.exported = false;
+  S.lastRR = null;
+  S.trend = []; S.trendCursor = 0; S.trendStart = 0;
+  await putMeta({ session_id: S.session.session_id, started_at: S.session.started_at, ended_at: null,
+                  platform: S.session.platform });
+  // Session-scoped fields not carried by events: write once as an event too.
+  await appendEvent({ kind: 'meta', t: now(), payload: { device_name: S.session.device_name, platform: S.session.platform,
+                      user_agent: S.session.user_agent, tz_offset_min: S.session.tz_offset_min } });
+  if (S.device && S.server && S.server.connected) {
+    // A session that starts mid-connection needs its own segment anchor.
+    S.seg += 1; S.tick = 0;
+    await appendEvent({ kind: 'seg', t: now(), payload: { seg: S.seg, reason: 'session_start' } });
+  }
+  log('session started ' + S.session.session_id);
+  requestWakeLock();
+  renderSession();
+}
+async function stopSession() {
+  if (!S.session || S.session.ended_at) return;
+  const t = now();
+  closeStage(t);
+  if (S.gapOpen) { S.session.gaps.push({ t_start: iso(S.gapOpen.t_start), t_end: iso(t), closed_by: 'stop' }); S.gapOpen = null; }
+  S.session.ended_at = iso(t);
+  await appendEvent({ kind: 'end', t });
+  await putMeta({ session_id: S.session.session_id, started_at: S.session.started_at, ended_at: S.session.ended_at,
+                  platform: S.session.platform });
+  releaseWakeLock();
+  log('session stopped: ' + S.session.rr.length + ' beats');
+  renderSession();
+}
+async function discardSession() {
+  if (!S.session) return;
+  if (!confirm(`Discard session ${S.session.session_id} (${S.session.rr.length} beats)? This deletes it from this browser.`)) return;
+  const sid = S.session.session_id;
+  S.session = null; S.gapOpen = null; S.exported = false;
+  S.trend = []; S.trendCursor = 0; S.trendStart = 0;
+  await deleteSession(sid);
+  releaseWakeLock();
+  log('session discarded ' + sid);
+  renderSession(); renderLabels();
+}
+
+// ---- labels ----------------------------------------------------------------
+async function addLabel(kind, value, note) {
+  if (!S.session || S.session.ended_at) { banner('warn', 'Start a session before labelling.'); return; }
+  const lab = { id: Math.random().toString(16).slice(2, 10), t: iso(now()), kind, value, note: note || '' };
+  S.session.labels.push(lab);
+  await appendEvent({ kind: 'label', t: now(), payload: lab });
+  log(`label ${kind}=${value}${lab.note ? ' "' + lab.note + '"' : ''}`);
+  renderLabels();
+}
+async function deleteLabel(id) {
+  if (!S.session) return;
+  const i = S.session.labels.findIndex(l => l.id === id);
+  if (i < 0) return;
+  const [lab] = S.session.labels.splice(i, 1);
+  await appendEvent({ kind: 'label_del', t: now(), payload: { id } });
+  log(`deleted label ${lab.kind}=${lab.value}`);
+  renderLabels();
+}
+async function deleteStage(id) {
+  if (!S.session) return;
+  const i = S.session.stages.findIndex(st => st.id === id);
+  if (i < 0) return;
+  const [st] = S.session.stages.splice(i, 1);
+  await appendEvent({ kind: 'stage_del', t: now(), payload: { id } });
+  log(`deleted stage ${st.stage} (${st.t_start.slice(11, 19)}); that time is now unlabelled`);
+  renderLabels();
+}
+function openStage() { const s = S.session && S.session.stages; return s && s.length && !s[s.length - 1].t_end ? s[s.length - 1] : null; }
+function closeStage(t) { const o = openStage(); if (o) { o.t_end = iso(t); } return o; }
+async function setStage(stage) {
+  if (!S.session || S.session.ended_at) { banner('warn', 'Start a session before marking a stage.'); return; }
+  const o = openStage();
+  if (o && o.stage === stage) return;
+  const t = now();
+  closeStage(t);
+  const id = Math.random().toString(16).slice(2, 10);
+  S.session.stages.push({ id, t_start: iso(t), t_end: null, stage });
+  await appendEvent({ kind: 'stage', t, payload: { stage, id } });
+  log('stage → ' + stage);
+  renderLabels();
+}
+
+// ---- beats -----------------------------------------------------------------
+function onNotification(ev) {
+  const tArr = now();
+  let p;
+  try { p = parseHRM(ev.target.value); } catch (e) { log('bad notification: ' + e.message); return; }
+  const n = p.rrMs.length;
+  // Timestamp per RR, not per notification: the last RR ends at arrival; each
+  // earlier one ends one RR sooner. Arrival jitter lands on absolute time only —
+  // rr_ms itself is what HRV is computed from and it is exact.
+  let tEnd = tArr;
+  const beats = [];
+  for (let i = n - 1; i >= 0; i--) {
+    beats.unshift({ t: tEnd, rr_ms: p.rrMs[i], rr_raw: p.rrRaw[i] });
+    tEnd -= p.rrMs[i];
+  }
+  for (const b of beats) {
+    const prev = S.lastRR;
+    b.suspect = b.rr_ms < RR_MIN_MS || b.rr_ms > RR_MAX_MS ||
+                (prev != null && Math.abs(b.rr_ms - prev) / prev > RR_JUMP);
+    S.lastRR = b.rr_ms;
+    S.tick += b.rr_raw;
+    b.seg = S.seg; b.tick = S.tick;
+    S.live.push(b);
+  }
+  const cutoff = tArr - (SPARK_S + 30) * 1000;
+  while (S.live.length && S.live[0].t < cutoff) S.live.shift();
+
+  if (S.session && !S.session.ended_at) {
+    for (const b of beats) S.session.rr.push({ t: iso(b.t), t_ms: b.t, seg: b.seg, tick: b.tick,
+                                              rr_raw: b.rr_raw, rr_ms: b.rr_ms, suspect: b.suspect });
+    S.session.hr.push({ t: iso(tArr), bpm: p.hr, contact: p.contactSupported ? p.contact : null });
+    appendEvent({ kind: 'rr', t: tArr, payload: { hr: p.hr, contact: p.contactSupported ? p.contact : null,
+      seg: S.seg, beats: beats.map(b => [b.t, b.rr_raw, b.tick, b.suspect ? 1 : 0]) } });
+  }
+  $('bpm').textContent = p.hr || '—';
+  if (n) $('lastRR').textContent = p.rrMs[n - 1].toFixed(1);
+  renderStats();
+}
+
+// ============================================================================
+// Rolling statistics — definitions match neurokit2 hrv_time so the number on
+// screen is the number the Python side will compute later:
+//   RMSSD = sqrt(mean(diff(RR)^2))          (population mean)
+//   SDNN  = std(RR, ddof=1)                 (sample sd)
+// ============================================================================
+function rmssd(rr) { if (rr.length < 2) return NaN; let s = 0; for (let i = 1; i < rr.length; i++) { const d = rr[i] - rr[i - 1]; s += d * d; } return Math.sqrt(s / (rr.length - 1)); }
+function sdnn(rr) { if (rr.length < 2) return NaN; const m = rr.reduce((a, b) => a + b, 0) / rr.length; let s = 0; for (const x of rr) s += (x - m) ** 2; return Math.sqrt(s / (rr.length - 1)); }
+function fmt(x, d = 1) { return Number.isFinite(x) ? x.toFixed(d) : '—'; }
+
+// Breathing rate derived from the heart. RR rises on the inhale and falls on
+// the exhale, so the dominant rhythm of the last two minutes of RR *is* the
+// breathing rate — down to ~1.5/min, which a 60 s window could never resolve.
+// Linear interpolation at 4 Hz, linear detrend, Hann window, direct DFT over
+// 0.025–0.5 Hz. Same recipe as h10_capture.stage_spectrum so the number on
+// screen is the number in the report.
+function breathRate(rr, tEnd, spanS = 120) {
+  const pts = [];
+  for (let i = rr.length - 1; i >= 0; i--) { if (tEnd - rr[i].t_ms > spanS * 1000) break; pts.push(rr[i]); }
+  pts.reverse();
+  if (pts.length < 40 || pts[pts.length - 1].t_ms - pts[0].t_ms < 60000) return null;
+  const fs = 4, t0 = pts[0].t_ms, n = Math.floor((pts[pts.length - 1].t_ms - t0) / 1000 * fs);
+  const y = new Float64Array(n);
+  for (let k = 0, j = 0; k < n; k++) {
+    const t = t0 + k * 1000 / fs;
+    while (j < pts.length - 2 && pts[j + 1].t_ms < t) j++;
+    const a = pts[j], b = pts[j + 1], f = (t - a.t_ms) / Math.max(1, b.t_ms - a.t_ms);
+    y[k] = a.rr_ms + f * (b.rr_ms - a.rr_ms);
+  }
+  // linear detrend: a slow drift in heart rate is not a breath
+  let sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (let k = 0; k < n; k++) { sx += k; sy += y[k]; sxx += k * k; sxy += k * y[k]; }
+  const slope = (n * sxy - sx * sy) / (n * sxx - sx * sx), icpt = (sy - slope * sx) / n;
+  for (let k = 0; k < n; k++) y[k] -= icpt + slope * k;
+  let best = 0, bestP = -1;
+  for (let f = 0.025; f <= 0.5; f += 0.0025) {
+    let re = 0, im = 0;
+    for (let k = 0; k < n; k++) { const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * k / (n - 1)), ang = 2 * Math.PI * f * k / fs; re += y[k] * w * Math.cos(ang); im -= y[k] * w * Math.sin(ang); }
+    const P = re * re + im * im; if (P > bestP) { bestP = P; best = f; }
+  }
+  const sm = [];
+  for (let i = 2; i < pts.length - 2; i++) sm.push((pts[i - 2].rr_ms + pts[i - 1].rr_ms + pts[i].rr_ms + pts[i + 1].rr_ms + pts[i + 2].rr_ms) / 5);
+  sm.sort((a, b) => a - b);
+  const swing = sm.length > 10 ? sm[Math.floor(sm.length * 0.95)] - sm[Math.floor(sm.length * 0.05)] : NaN;
+  return { bpm: best * 60, period: 1 / best, swing };
+}
+
+// One trend point every TREND_STEP_S of beat time: RMSSD/SDNN/HR over the trailing
+// 60 s. Incremental from S.trendCursor, so the same code serves the live stream
+// and a recovered session (cursor reset to 0), and a 4-hour session costs O(n).
+function advanceTrend() {
+  const s = S.session; if (!s) return false;
+  const rr = s.rr; let added = false;
+  for (; S.trendCursor < rr.length; S.trendCursor++) {
+    const t = rr[S.trendCursor].t_ms;
+    const lastT = S.trend.length ? S.trend[S.trend.length - 1].t : Date.parse(s.started_at) + (ROLL_S - TREND_STEP_S) * 1000;
+    if (t - lastT < TREND_STEP_S * 1000) continue;
+    while (S.trendStart < S.trendCursor && t - rr[S.trendStart].t_ms > ROLL_S * 1000) S.trendStart++;
+    const win = []; for (let i = S.trendStart; i <= S.trendCursor; i++) win.push(rr[i].rr_ms);
+    if (win.length < 10) continue;
+    const d = breathRate(rr, t);
+    S.trend.push({ t, rmssd: rmssd(win), sdnn: sdnn(win), hr: 60000 / (win.reduce((a, b) => a + b, 0) / win.length),
+                   br: d ? d.bpm : NaN, swing: d ? d.swing : NaN });
+    if (d) S.derived = d;
+    added = true;
+  }
+  return added;
+}
+
+function drawTrend() {
+  const c = $('trend'); if (!c) return;
+  const dpr = window.devicePixelRatio || 1, W = c.clientWidth || 600, H = 170;
+  if (c.width !== W * dpr || c.height !== H * dpr) { c.width = W * dpr; c.height = H * dpr; }
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  g.fillStyle = '#f5f4ef'; g.fillRect(0, 0, W, H);
+  const s = S.session, pts = S.trend;
+  const padL = 34, padR = 30, padT = 16, padB = 18;
+  g.font = '11px sans-serif'; g.fillStyle = '#6b6a64';
+  if (!s || pts.length < 2) {
+    g.fillText(s ? 'first point after 60 s of beats…' : 'start a session to see the trend', padL, H / 2);
+    return;
+  }
+  const t0 = Date.parse(s.started_at);
+  const t1 = Math.max((s.ended_at ? Date.parse(s.ended_at) : now()), pts[pts.length - 1].t, t0 + 60000);
+  const x = (t) => padL + (t - t0) / (t1 - t0) * (W - padL - padR);
+  let lo = Infinity, hi = -Infinity, hlo = Infinity, hhi = -Infinity;
+  for (const p of pts) { lo = Math.min(lo, p.rmssd, p.sdnn); hi = Math.max(hi, p.rmssd, p.sdnn); hlo = Math.min(hlo, p.hr); hhi = Math.max(hhi, p.hr); }
+  lo = Math.max(0, lo - (hi - lo) * 0.2 - 2); hi = hi + (hi - lo) * 0.2 + 2;
+  hlo = Math.floor(hlo - 5); hhi = Math.ceil(hhi + 5);
+  const y = (v) => H - padB - (v - lo) / (hi - lo) * (H - padT - padB);
+  const yh = (v) => H - padB - (v - hlo) / (hhi - hlo) * (H - padT - padB);
+
+  // stage bands + labels
+  for (const st of s.stages) {
+    const a = x(Date.parse(st.t_start)), b = x(st.t_end ? Date.parse(st.t_end) : t1);
+    g.fillStyle = stageColour(st.stage); g.fillRect(a, padT - 12, Math.max(1, b - a), H - padT - padB + 12);
+    if (b - a > 40) { g.fillStyle = '#4a4a46'; g.save(); g.beginPath(); g.rect(a, 0, b - a, padT); g.clip();
+                      g.fillText(st.stage.replace(' 6/min', ''), a + 3, padT - 4); g.restore(); }
+  }
+  // gaps
+  g.fillStyle = 'rgba(179,38,30,0.12)';
+  for (const gp of s.gaps) { const a = x(Date.parse(gp.t_start)), b = x(Date.parse(gp.t_end)); g.fillRect(a, padT, Math.max(2, b - a), H - padT - padB); }
+  if (S.gapOpen) { const a = x(S.gapOpen.t_start); g.fillRect(a, padT, Math.max(2, x(t1) - a), H - padT - padB); }
+
+  // HR, dashed, right axis
+  g.strokeStyle = '#9a9890'; g.lineWidth = 1; g.setLineDash([4, 3]); g.beginPath();
+  pts.forEach((p, i) => i ? g.lineTo(x(p.t), yh(p.hr)) : g.moveTo(x(p.t), yh(p.hr))); g.stroke(); g.setLineDash([]);
+  // SDNN, thin — catches slow breathing that RMSSD is blind to
+  g.strokeStyle = '#7fb0d3'; g.lineWidth = 1.2; g.beginPath();
+  pts.forEach((p, i) => i ? g.lineTo(x(p.t), y(p.sdnn)) : g.moveTo(x(p.t), y(p.sdnn))); g.stroke();
+  // RMSSD
+  g.strokeStyle = '#1f5f8b'; g.lineWidth = 2; g.beginPath();
+  pts.forEach((p, i) => i ? g.lineTo(x(p.t), y(p.rmssd)) : g.moveTo(x(p.t), y(p.rmssd))); g.stroke();
+  const lastP = pts[pts.length - 1];
+  g.fillStyle = '#1f5f8b'; g.beginPath(); g.arc(x(lastP.t), y(lastP.rmssd), 3.5, 0, Math.PI * 2); g.fill();
+
+  // feeling taps
+  for (const l of s.labels) {
+    if (l.kind !== 'feeling') continue;
+    const px = x(Date.parse(l.t));
+    g.strokeStyle = '#b3261e'; g.lineWidth = 1; g.beginPath(); g.moveTo(px, padT); g.lineTo(px, H - padB); g.stroke();
+    g.fillStyle = '#b3261e'; g.fillText(l.value[0].toUpperCase(), px + 2, H - padB - 3);
+  }
+
+  // axes
+  g.fillStyle = '#1f5f8b'; g.fillText(Math.round(hi) + '', 2, padT + 6); g.fillText(Math.round(lo) + '', 2, H - padB);
+  g.fillStyle = '#9a9890'; g.fillText(hhi + '', W - padR + 4, padT + 6); g.fillText(hlo + '', W - padR + 4, H - padB);
+  g.fillStyle = '#6b6a64';
+  const spanMin = (t1 - t0) / 60000, tick = spanMin <= 12 ? 1 : spanMin <= 40 ? 5 : spanMin <= 120 ? 10 : 30;
+  for (let m = 0; m <= spanMin; m += tick) { const px = x(t0 + m * 60000); g.fillText(m + 'm', px - 6, H - 4); }
+  renderBlocks();
+}
+
+// Per-block medians of the trend points, skipping each block's first minute.
+// This is the export's per-stage table, live, so a long session can be judged
+// while it is still running rather than after it is over.
+function renderBlocks() {
+  const s = S.session, tb = $('blocks'); if (!tb) return;
+  if (!s || !S.trend.length) { tb.innerHTML = ''; return; }
+  const med = (a) => { if (!a.length) return NaN; const b = [...a].sort((p, q) => p - q); const m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+  const rows = [];
+  for (const st of s.stages) {
+    const a = Date.parse(st.t_start), b = st.t_end ? Date.parse(st.t_end) : Infinity;
+    const pts = S.trend.filter(p => p.t >= a + ROLL_S * 1000 && p.t < b);
+    const dur = ((st.t_end ? Date.parse(st.t_end) : now()) - a) / 60000;
+    rows.push({ stage: st.stage, dur, n: pts.length, rmssd: med(pts.map(p => p.rmssd)), sdnn: med(pts.map(p => p.sdnn)), hr: med(pts.map(p => p.hr)),
+                br: med(pts.map(p => p.br).filter(Number.isFinite)), swing: med(pts.map(p => p.swing).filter(Number.isFinite)) });
+  }
+  tb.innerHTML = '<tr><th>block</th><th>min</th><th>RMSSD</th><th>SDNN</th><th>HR</th><th>breaths/min</th><th>swing ms</th></tr>' +
+    rows.map(r => `<tr><td>${r.stage}</td><td>${r.dur.toFixed(1)}</td><td>${fmt(r.rmssd)}</td><td>${fmt(r.sdnn)}</td><td>${fmt(r.hr, 0)}</td><td>${fmt(r.br)}</td><td>${fmt(r.swing, 0)}</td></tr>`).join('');
+}
+
+function renderStats() {
+  const src = S.session && !S.session.ended_at ? S.session.rr : S.live;
+  const last = src.length ? (src[src.length - 1].t_ms ?? src[src.length - 1].t) : null;
+  if (last == null) return;
+  const win = [];
+  for (let i = src.length - 1; i >= 0; i--) { const b = src[i]; const t = b.t_ms ?? b.t; if (last - t > ROLL_S * 1000) break; win.push(b); }
+  win.reverse();
+  const all = win.map(b => b.rr_ms), clean = win.filter(b => !b.suspect).map(b => b.rr_ms);
+  $('rmssd').textContent = fmt(rmssd(all));
+  $('rmssdClean').textContent = clean.length !== all.length ? `(${fmt(rmssd(clean))} excl. suspect)` : '';
+  $('sdnn').textContent = fmt(sdnn(all));
+  $('breath').textContent = S.derived ? S.derived.bpm.toFixed(1) : '—';
+  if (S.session) {
+    const rr = S.session.rr, ns = rr.reduce((a, b) => a + (b.suspect ? 1 : 0), 0);
+    $('beats').textContent = rr.length;
+    $('suspect').textContent = ns;
+    $('suspectPct').textContent = rr.length ? (100 * ns / rr.length).toFixed(1) + '%' : '';
+    $('gaps').textContent = S.session.gaps.length + (S.gapOpen ? 1 : 0);
+  } else {
+    $('beats').textContent = S.live.length; $('suspect').textContent = S.live.filter(b => b.suspect).length; $('suspectPct').textContent = '';
+  }
+  drawSpark(src, last);
+  if (advanceTrend()) drawTrend();
+  renderMed();
+}
+
+function drawSpark(src, last) {
+  const c = $('spark'), dpr = window.devicePixelRatio || 1;
+  const W = c.clientWidth || 600, H = 110;
+  if (c.width !== W * dpr || c.height !== H * dpr) { c.width = W * dpr; c.height = H * dpr; }
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+  const pts = [];
+  for (let i = src.length - 1; i >= 0; i--) { const b = src[i]; const t = b.t_ms ?? b.t; if (last - t > SPARK_S * 1000) break; pts.push(b); }
+  if (pts.length < 2) return;
+  pts.reverse();
+  let lo = Infinity, hi = -Infinity;
+  for (const b of pts) { if (b.rr_ms < lo) lo = b.rr_ms; if (b.rr_ms > hi) hi = b.rr_ms; }
+  const pad = Math.max(20, (hi - lo) * 0.15); lo -= pad; hi += pad;
+  const x = (t) => W - ((last - t) / (SPARK_S * 1000)) * W, y = (v) => H - ((v - lo) / (hi - lo)) * (H - 10) - 5;
+  g.strokeStyle = '#1f5f8b'; g.lineWidth = 1.5; g.beginPath();
+  pts.forEach((b, i) => { const px = x(b.t_ms ?? b.t), py = y(b.rr_ms); i ? g.lineTo(px, py) : g.moveTo(px, py); });
+  g.stroke();
+  g.fillStyle = '#d9534f';
+  for (const b of pts) if (b.suspect) { g.beginPath(); g.arc(x(b.t_ms ?? b.t), y(b.rr_ms), 3, 0, Math.PI * 2); g.fill(); }
+  g.fillStyle = '#6b6a64'; g.font = '11px sans-serif';
+  g.fillText(`${Math.round(hi)} ms`, 4, 12); g.fillText(`${Math.round(lo)} ms`, 4, H - 4); g.fillText('2 min', W - 34, H - 4);
+}
+
+// ============================================================================
+// Bluetooth
+// ============================================================================
+async function connect() {
+  if (!navigator.bluetooth) { banner('bad', 'No Web Bluetooth in this browser. iPhone → Bluefy. Mac → Chrome.'); return; }
+  try {
+    setConn('warn', 'choosing device…');
+    S.device = await navigator.bluetooth.requestDevice({
+      // Match on the advertised HR service, or on the name in case the strap's
+      // advertisement omits the UUID. Anything used later must be listed in
+      // optionalServices or access is refused.
+      filters: [{ services: ['heart_rate'] }, { namePrefix: 'Polar' }],
+      optionalServices: ['heart_rate', 'battery_service'],
+    });
+    S.device.addEventListener('gattserverdisconnected', onDisconnected);
+    S.wantConnected = true;
+    await gattConnect();
+  } catch (e) {
+    if (e.name === 'NotFoundError') { setConn('', 'no device chosen'); }
+    else { setConn('off', 'connect failed'); banner('bad', 'Connect failed: ' + e.message); }
+  }
+}
+async function gattConnect() {
+  S.server = await S.device.gatt.connect();
+  const svc = await S.server.getPrimaryService('heart_rate');
+  S.hrChar = await svc.getCharacteristic('heart_rate_measurement');
+  await S.hrChar.startNotifications();
+  S.hrChar.addEventListener('characteristicvaluechanged', onNotification);
+  S.seg += 1; S.tick = 0; S.lastRR = null;
+  $('devName').textContent = S.device.name || S.device.id;
+  if (S.session && !S.session.ended_at) {
+    S.session.device_name = S.session.device_name || S.device.name || null;
+    await appendEvent({ kind: 'seg', t: now(), payload: { seg: S.seg, reason: S.gapOpen ? 'reconnect' : 'connect' } });
+    if (S.gapOpen) { S.session.gaps.push({ t_start: iso(S.gapOpen.t_start), t_end: iso(now()), closed_by: 'reconnect' }); S.gapOpen = null;
+                     await appendEvent({ kind: 'gap_end', t: now() }); }
+  }
+  setConn('on', 'connected · streaming');
+  $('btnDisconnect').disabled = false;
+  log('connected to ' + (S.device.name || S.device.id) + ' (segment ' + S.seg + ')');
+  readBattery();
+}
+async function readBattery() {
+  try {
+    const svc = await S.server.getPrimaryService('battery_service');
+    const ch = await svc.getCharacteristic('battery_level');
+    const v = await ch.readValue(); $('battery').textContent = 'battery ' + v.getUint8(0) + '%';
+    try { await ch.startNotifications(); ch.addEventListener('characteristicvaluechanged', (e) => { $('battery').textContent = 'battery ' + e.target.value.getUint8(0) + '%'; }); } catch (_) {}
+  } catch (e) { $('battery').textContent = ''; }
+}
+async function onDisconnected() {
+  setConn('off', 'disconnected');
+  $('battery').textContent = '';
+  if (S.session && !S.session.ended_at && !S.gapOpen) {
+    S.gapOpen = { t_start: now() };
+    await appendEvent({ kind: 'gap_start', t: now() });
+    log('DISCONNECTED mid-session — gap recorded');
+  } else log('disconnected');
+  renderStats();
+  if (S.wantConnected) reconnectLoop();
+}
+async function reconnectLoop() {
+  if (S.reconnecting) return;
+  S.reconnecting = true;
+  const delays = [1, 2, 4, 8, 8, 8, 15, 15, 30, 30, 30, 30];
+  for (let i = 0; i < delays.length && S.wantConnected; i++) {
+    setConn('warn', `reconnecting… (try ${i + 1}/${delays.length})`);
+    await new Promise(r => setTimeout(r, delays[i] * 1000));
+    if (!S.wantConnected) break;
+    try { await gattConnect(); S.reconnecting = false; return; } catch (e) { log('reconnect failed: ' + e.message); }
+  }
+  S.reconnecting = false;
+  if (S.wantConnected) { setConn('off', 'gave up reconnecting'); banner('bad', 'Lost the H10 and could not reconnect. Tap Connect again — the gap is recorded in the export.'); }
+}
+async function disconnect() {
+  S.wantConnected = false;
+  try { if (S.device && S.device.gatt.connected) S.device.gatt.disconnect(); } catch (_) {}
+  setConn('', 'idle'); $('btnDisconnect').disabled = true;
+}
+function setConn(cls, text) { $('dot').className = 'dot ' + cls; $('connStatus').textContent = text; }
+
+// ============================================================================
+// Wake lock, navigation guard
+// ============================================================================
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) {
+    banner('warn', 'Wake Lock is not available here. The screen WILL sleep and the session will stop. iPhone: Settings → Display & Brightness → Auto-Lock → Never, for today.', 'wl');
+    return;
+  }
+  try {
+    S.wakeLock = await navigator.wakeLock.request('screen');
+    S.wakeLock.addEventListener('release', () => log('wake lock released'));
+    log('wake lock acquired');
+  } catch (e) { banner('warn', 'Wake Lock refused (' + e.message + '). Set Auto-Lock to Never for today.', 'wl'); }
+}
+function releaseWakeLock() { if (S.wakeLock) { S.wakeLock.release().catch(() => {}); S.wakeLock = null; } }
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && S.session && !S.session.ended_at) requestWakeLock();
+});
+window.addEventListener('beforeunload', (e) => {
+  if (S.session && !S.session.ended_at) { e.preventDefault(); e.returnValue = ''; }
+});
+window.addEventListener('pagehide', () => { /* IndexedDB writes are already flushed per notification */ });
+
+// ============================================================================
+// Export
+// ============================================================================
+function exportJSON() { return JSON.stringify(S.session, null, 1); }
+function stageAt(tMs) { for (const s of S.session.stages) { const a = Date.parse(s.t_start), b = s.t_end ? Date.parse(s.t_end) : Infinity; if (tMs >= a && tMs < b) return s.stage; } return ''; }
+function feelingAt(tMs) { let f = ''; for (const l of S.session.labels) { if (l.kind !== 'feeling') continue; if (Date.parse(l.t) <= tMs) f = l.value; else break; } return f; }
+function exportCSV() {
+  const q = (s) => '"' + String(s).replace(/"/g, '""') + '"';
+  const rows = ['t_iso,t_epoch_ms,seg,tick,rr_raw,rr_ms,suspect,stage,feeling'];
+  for (const b of S.session.rr) rows.push([b.t, b.t_ms, b.seg, b.tick, b.rr_raw, b.rr_ms.toFixed(4), b.suspect ? 1 : 0,
+                                          q(stageAt(b.t_ms)), q(feelingAt(b.t_ms))].join(','));
+  return rows.join('\n') + '\n';
+}
+async function saveFile(name, text, type) {
+  const file = new File([text], name, { type });
+  const iOS = /^ios/.test(platformString());
+  // Bluefy is a WKWebView: <a download> is unreliable there. The share sheet
+  // (AirDrop to the Mac, or Save to Files) is the path that works.
+  if (iOS && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: name }); S.exported = true; return; }
+    catch (e) { if (e.name === 'AbortError') return; log('share failed: ' + e.message + ' — falling back to download'); }
+  }
+  const url = URL.createObjectURL(file); const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+  S.exported = true;
+}
+async function copyJSON() {
+  try { await navigator.clipboard.writeText(exportJSON()); banner('info', 'JSON copied to clipboard (' + S.session.rr.length + ' beats). Paste it into Notes and AirDrop, if nothing else works.'); S.exported = true; }
+  catch (e) { banner('bad', 'Clipboard refused: ' + e.message); }
+}
+
+// ============================================================================
+// Recovery
+// ============================================================================
+async function offerRecovery() {
+  let metas;
+  try { metas = await allMeta(); } catch (e) { banner('bad', 'IndexedDB unavailable (' + e.message + '): nothing will persist across a reload. Export often.'); return; }
+  const open = metas.filter(m => !m.ended_at).sort((a, b) => b.started_at.localeCompare(a.started_at));
+  const done = metas.filter(m => m.ended_at).sort((a, b) => b.started_at.localeCompare(a.started_at));
+  for (const m of open) {
+    const el = banner('info', `Unfinished session <b>${m.session_id}</b> (started ${m.started_at.slice(0, 19).replace('T', ' ')} UTC).`, 'rec-' + m.session_id);
+    const b1 = document.createElement('button'); b1.textContent = 'Recover and continue'; b1.className = 'primary';
+    const b2 = document.createElement('button'); b2.textContent = 'Recover, stop, export';
+    const b3 = document.createElement('button'); b3.textContent = 'Delete'; b3.className = 'danger';
+    b1.onclick = async () => { await recover(m, false); el.remove(); };
+    b2.onclick = async () => { await recover(m, true); el.remove(); };
+    b3.onclick = async () => { if (confirm('Delete ' + m.session_id + '?')) { await deleteSession(m.session_id); el.remove(); } };
+    const row = document.createElement('div'); row.className = 'row'; row.append(b1, b2, b3); el.appendChild(row);
+  }
+  if (done.length && !open.length) {
+    const m = done[0];
+    const el = banner('info', `Last finished session <b>${m.session_id}</b> is still in this browser.`, 'rec-' + m.session_id);
+    const b1 = document.createElement('button'); b1.textContent = 'Load for export';
+    const b3 = document.createElement('button'); b3.textContent = 'Delete'; b3.className = 'danger';
+    b1.onclick = async () => { await recover(m, true); el.remove(); };
+    b3.onclick = async () => { if (confirm('Delete ' + m.session_id + '?')) { await deleteSession(m.session_id); el.remove(); } };
+    const row = document.createElement('div'); row.className = 'row'; row.append(b1, b3); el.appendChild(row);
+  }
+}
+async function recover(meta, stopIt) {
+  const evs = await readEvents(meta.session_id);
+  const s = newSession();
+  s.session_id = meta.session_id; s.started_at = meta.started_at; s.ended_at = meta.ended_at || null; s.platform = meta.platform || s.platform;
+  let gapStart = null, maxTick = 0, maxSeg = 0;
+  for (const e of evs) {
+    const p = e.payload || {};
+    switch (e.kind) {
+      case 'meta': Object.assign(s, { device_name: p.device_name, platform: p.platform || s.platform, user_agent: p.user_agent, tz_offset_min: p.tz_offset_min }); break;
+      case 'seg': maxSeg = Math.max(maxSeg, p.seg); break;
+      case 'rr':
+        s.hr.push({ t: iso(e.t), bpm: p.hr, contact: p.contact });
+        for (const [t, raw, tick, sus] of p.beats) {
+          s.rr.push({ t: iso(t), t_ms: t, seg: p.seg, tick, rr_raw: raw, rr_ms: raw * 1000 / 1024, suspect: !!sus });
+          if (p.seg >= maxSeg) { maxSeg = p.seg; maxTick = tick; }
+        }
+        break;
+      case 'label': s.labels.push(p); break;
+      case 'label_del': { const i = s.labels.findIndex(l => l.id === p.id); if (i >= 0) s.labels.splice(i, 1); break; }
+      case 'stage': { const o = s.stages.length && !s.stages[s.stages.length - 1].t_end ? s.stages[s.stages.length - 1] : null;
+                      if (o) o.t_end = iso(e.t); s.stages.push({ id: p.id, t_start: iso(e.t), t_end: null, stage: p.stage }); break; }
+      case 'stage_del': { const i = s.stages.findIndex(st => st.id === p.id); if (i >= 0) s.stages.splice(i, 1); break; }
+      case 'gap_start': gapStart = e.t; break;
+      case 'gap_end': if (gapStart != null) { s.gaps.push({ t_start: iso(gapStart), t_end: iso(e.t), closed_by: 'reconnect' }); gapStart = null; } break;
+      case 'gap': s.gaps.push(p); break;
+      case 'end': s.ended_at = iso(e.t); break;
+    }
+  }
+  // A reload is itself a gap: nothing was recorded between the last beat and now.
+  let reloadGap = null;
+  if (!s.ended_at) {
+    const lastT = s.rr.length ? s.rr[s.rr.length - 1].t_ms : Date.parse(s.started_at);
+    reloadGap = { t_start: iso(gapStart != null ? gapStart : lastT), t_end: iso(now()), closed_by: 'reload' };
+    s.gaps.push(reloadGap);
+  } else if (gapStart != null) {
+    s.gaps.push({ t_start: iso(gapStart), t_end: s.ended_at, closed_by: 'stop' });
+  }
+  S.session = s; S.exported = false; S.seg = maxSeg; S.tick = maxTick; S.lastRR = s.rr.length ? s.rr[s.rr.length - 1].rr_ms : null;
+  S.trend = []; S.trendCursor = 0; S.trendStart = 0; advanceTrend();
+  log(`recovered ${s.session_id}: ${s.rr.length} beats, ${s.labels.length} labels, ${s.stages.length} stages`);
+  if (stopIt && !s.ended_at) { await appendEvent({ kind: 'gap', t: now(), payload: reloadGap }); await stopSession(); }
+  else if (!s.ended_at) { await appendEvent({ kind: 'gap', t: now(), payload: reloadGap }); requestWakeLock(); }
+  renderSession(); renderLabels(); renderStats();
+}
+
+// ============================================================================
+// Breathing guide. Cycle = 60 / rate seconds, IN_FRACTION of it inhaling.
+// 6/min -> 4 s in / 6 s out; 3/min -> 8 s in / 12 s out. Starting the guide
+// labels the stage, because a block you have to label from memory afterwards
+// is a block that gets mislabelled.
+// ============================================================================
+function rateLabel(r) { return String(r) + '/min'; }
+function rateText(r) { const c = 60 / r; return `${(c * IN_FRACTION).toFixed(1).replace('.0', '')} s in, ${(c * (1 - IN_FRACTION)).toFixed(1).replace('.0', '')} s out · ${rateLabel(r)}`; }
+async function setRate(r, opts = {}) {
+  S.rate = r; S.breathT0 = 0; S.breathPhase = null;          // restart the cycle cleanly on an inhale
+  if (!opts.keepSweep) S.sweep = null;
+  $('rateText').textContent = rateText(r);
+  renderRateChips();
+  if (S.breathing && S.session && !S.session.ended_at) {
+    await setStage('paced breathing ' + rateLabel(r));
+    await addLabel('guide', rateLabel(r), '');
+  }
+}
+function startSweep() {
+  S.sweep = { idx: 0, t0: performance.now() };
+  setRate(SWEEP.rates[0], { keepSweep: true });
+}
+function beep(freq) {
+  if (!S.sound || !S.med) return;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    S.audio = S.audio || new AC();
+    if (S.audio.state === 'suspended') S.audio.resume();
+    const o = S.audio.createOscillator(), g = S.audio.createGain(), t = S.audio.currentTime;
+    o.type = 'sine'; o.frequency.value = freq; g.gain.value = 0.0001;
+    o.connect(g); g.connect(S.audio.destination);
+    g.gain.exponentialRampToValueAtTime(0.12, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+    o.start(t); o.stop(t + 0.65);
+  } catch (_) {}
+}
+function breathStep(ts) {
+  if (!S.breathing) return;
+  if (!S.breathT0) S.breathT0 = ts;
+  if (S.sweep) {
+    const el = (ts - S.sweep.t0) / 1000, idx = Math.min(SWEEP.rates.length - 1, Math.floor(el / SWEEP.stepS));
+    if (idx !== S.sweep.idx) { S.sweep.idx = idx; setRate(SWEEP.rates[idx], { keepSweep: true }); S.breathT0 = ts; }
+    const left = SWEEP.stepS - (el - idx * SWEEP.stepS);
+    $('sweepText').textContent = `sweep ${idx + 1}/${SWEEP.rates.length} · ${rateLabel(SWEEP.rates[idx])} · ${Math.max(0, left).toFixed(0)} s to next`;
+  } else $('sweepText').textContent = '';
+  const cycle = 60 / S.rate, inS = cycle * IN_FRACTION;
+  const ph = ((ts - S.breathT0) / 1000) % cycle;
+  const inhale = ph < inS;
+  if (S.breathPhase !== inhale) { S.breathPhase = inhale; beep(inhale ? 660 : 440); }
+  const f = inhale ? ph / inS : 1 - (ph - inS) / (cycle - inS);
+  const ease = 0.5 - 0.5 * Math.cos(Math.PI * f);
+  const scale = `scale(${0.55 + 0.45 * ease})`;
+  const cue = inhale ? 'breathe in' : 'breathe out';
+  const cnt = (inhale ? inS - ph : cycle - ph).toFixed(0) + ' s · ' + rateLabel(S.rate) + ' · cycle ' + (Math.floor((ts - S.breathT0) / 1000 / cycle) + 1);
+  document.querySelectorAll('.ring').forEach(e => e.style.transform = scale);
+  document.querySelectorAll('.cue').forEach(e => e.textContent = cue);
+  document.querySelectorAll('.breath .cnt, .med .mid > .cnt:not(#sweepText)').forEach(e => e.textContent = cnt);
+  requestAnimationFrame(breathStep);
+}
+async function startBreath() {
+  if (S.breathing) return;
+  S.breathing = true; S.breathT0 = 0; S.breathPhase = null;
+  $('breathBox').hidden = false; $('btnBreath').textContent = 'Stop guide';
+  if (S.session && !S.session.ended_at) {
+    await setStage('paced breathing ' + rateLabel(S.rate));
+    await addLabel('guide', rateLabel(S.rate) + (S.sweep ? ' sweep' : ''), '');
+  }
+  requestAnimationFrame(breathStep);
+}
+async function stopBreath(nextStage = 'unlabelled') {
+  if (!S.breathing) return;
+  S.breathing = false; S.sweep = null;
+  $('breathBox').hidden = true; $('btnBreath').textContent = 'Start guide';
+  document.querySelectorAll('.cue').forEach(e => e.textContent = '—');
+  document.querySelectorAll('.breath .cnt, .med .mid > .cnt').forEach(e => e.textContent = '');
+  if (S.session && !S.session.ended_at && (openStage() || {}).stage?.startsWith('paced breathing')) {
+    await setStage(nextStage);
+    await addLabel('guide', nextStage === 'meditation' ? 'free' : 'off', '');
+  }
+  renderRateChips(); renderMed();
+}
+// Free meditation: no pacing at all. The stage is 'meditation' and everything
+// about the breath is derived from the RR rhythm afterwards (and live, above).
+async function startFree() {
+  if (S.breathing) { await stopBreath('meditation'); return; }
+  if (S.session && !S.session.ended_at && (openStage() || {}).stage !== 'meditation') {
+    await setStage('meditation');
+    await addLabel('guide', 'free', '');
+  }
+  renderRateChips(); renderMed();
+}
+function toggleBreath() { S.breathing ? stopBreath() : startBreath(); }
+function renderRateChips() {
+  for (const host of ['rates', 'medRates']) {
+    const el = $(host); el.innerHTML = '';
+    const inMed = host === 'medRates', paced = !inMed || S.breathing;
+    if (inMed) { const fr = document.createElement('button'); fr.textContent = 'free'; fr.classList.toggle('active', !S.breathing); fr.onclick = startFree; el.appendChild(fr); }
+    // In the overlay, picking a rate also starts the pacing; on the card the Start button does that.
+    const go = async (fn) => { await fn(); if (inMed && !S.breathing) await startBreath(); };
+    for (const r of RATES) { const b = document.createElement('button'); b.textContent = rateLabel(r);
+      b.classList.toggle('active', paced && !S.sweep && S.rate === r); b.onclick = () => go(() => setRate(r)); el.appendChild(b); }
+    const sw = document.createElement('button'); sw.textContent = 'sweep 4.5–6.5'; sw.classList.toggle('active', paced && !!S.sweep); sw.onclick = () => go(startSweep); el.appendChild(sw);
+    const cu = document.createElement('button'); cu.textContent = RATES.includes(S.rate) || S.sweep ? 'other…' : rateLabel(S.rate) + ' ✎';
+    cu.classList.toggle('active', paced && !S.sweep && !RATES.includes(S.rate));
+    cu.onclick = () => { const v = parseFloat(prompt('breaths per minute (e.g. 2.5)', String(S.rate))); if (v > 0.5 && v <= 30) go(() => setRate(v)); };
+    el.appendChild(cu);
+  }
+}
+// ---- meditation mode: same engine, different room -------------------------
+function enterMed() {
+  S.med = true; $('med').hidden = false; $('medSound').textContent = 'sound: ' + (S.sound ? 'on' : 'off');
+  if (S.session && !S.session.ended_at) requestWakeLock();
+  if (!S.breathing) startFree();          // default: no pacing, everything derived
+  renderRateChips(); renderMed();
+}
+async function exitMed() {
+  S.med = false; $('med').hidden = true;
+  if (S.breathing) await stopBreath('unlabelled');
+  else if (S.session && !S.session.ended_at && (openStage() || {}).stage === 'meditation') { await setStage('unlabelled'); await addLabel('guide', 'off', ''); }
+  renderRateChips();
+}
+function renderMed() {
+  if (!S.med) return;
+  if (!S.breathing) {
+    document.querySelectorAll('.med .ring').forEach(e => e.style.transform = 'scale(0.7)');
+    document.querySelectorAll('.med .cue').forEach(e => e.textContent = 'breathe as you like');
+    $('sweepText').textContent = '';
+    const d = S.derived;
+    $('derivedText').textContent = d ? `≈ ${d.bpm.toFixed(1)} breaths/min · ${d.period.toFixed(0)} s per breath · swing ${d.swing.toFixed(0)} ms`
+                                     : 'reading your rhythm — first estimate after a minute';
+  } else $('derivedText').textContent = S.derived ? `heart says ≈ ${S.derived.bpm.toFixed(1)} breaths/min` : '';
+  $('medRmssd').textContent = $('rmssd').textContent; $('medSdnn').textContent = $('sdnn').textContent; $('medHr').textContent = $('bpm').textContent;
+  const o = openStage(); $('medStage').textContent = o ? o.stage : (S.session ? 'unlabelled' : 'no session');
+  $('medStageFor').textContent = $('stageFor').textContent; $('medElapsed').textContent = $('elapsed').textContent;
+  $('medRec').textContent = S.session && !S.session.ended_at ? '● recording' : 'NOT RECORDING';
+}
+
+// ============================================================================
+// Rendering
+// ============================================================================
+function banner(kind, html, key) {
+  if (key) { const old = document.getElementById('bn-' + key); if (old) old.remove(); }
+  const el = document.createElement('div'); el.className = 'banner ' + kind; el.innerHTML = html;
+  if (key) el.id = 'bn-' + key;
+  const x = document.createElement('button'); x.className = 'small'; x.textContent = 'dismiss'; x.style.marginLeft = '8px';
+  x.onclick = () => el.remove(); el.appendChild(x);
+  $('banners').appendChild(el);
+  return el;
+}
+function log(msg) {
+  const d = new Date(), p = (n) => String(n).padStart(2, '0');
+  const line = `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}  ${msg}`;
+  const el = $('log'); el.textContent = (line + '\n' + el.textContent).split('\n').slice(0, 200).join('\n');
+}
+function renderSession() {
+  const s = S.session, active = s && !s.ended_at;
+  $('recState').innerHTML = active ? '<span class="rec">● RECORDING</span>' : (s ? 'stopped — export it' : 'not recording');
+  $('sessionId').textContent = s ? s.session_id + (s.ended_at ? '  (ended)' : '') : '';
+  $('btnStart').disabled = !!active;
+  $('btnStop').disabled = !active;
+  $('btnDiscard').disabled = !s;
+  $('btnJSON').disabled = $('btnCSV').disabled = $('btnCopy').disabled = !s;
+  document.querySelectorAll('#feelings button, #stages button, #btnNote').forEach(b => b.disabled = !active);
+  renderLabels();
+}
+function renderLabels() {
+  drawTrend();
+  renderMed();
+  const s = S.session, ul = $('labelList'); ul.innerHTML = '';
+  const o = openStage();
+  $('curStage').textContent = o ? o.stage : 'unlabelled';
+  document.querySelectorAll('#stages button').forEach(b => b.classList.toggle('active', !!o && b.dataset.stage === o.stage));
+  if (!s) { $('labelCount').textContent = '0'; return; }
+  const items = [
+    ...s.labels.map(l => ({ t: l.t, text: (l.kind === 'feeling' ? l.value.replace('_', ' ') : l.kind === 'guide' ? 'guide ' + l.value : 'note') + (l.note ? ' — ' + l.note : ''), id: l.id })),
+    ...s.stages.map(st => ({ t: st.t_start, text: 'stage: ' + st.stage + (st.t_end ? '' : ' (open)'), id: st.id, stage: true })),
+  ].sort((a, b) => a.t.localeCompare(b.t)).slice(-30).reverse();
+  $('labelCount').textContent = s.labels.length + ' labels · ' + s.stages.length + ' stages';
+  for (const it of items) {
+    const li = document.createElement('li');
+    const t = document.createElement('span'); t.className = 't'; t.textContent = new Date(it.t).toTimeString().slice(0, 8);
+    const x = document.createElement('span'); x.className = 'x'; x.textContent = it.text;
+    li.append(t, x);
+    if (it.id) { const b = document.createElement('button'); b.textContent = '✕';
+                 b.onclick = () => it.stage ? deleteStage(it.id) : deleteLabel(it.id); li.appendChild(b); }
+    ul.appendChild(li);
+  }
+}
+function tickElapsed() {
+  const s = S.session;
+  if (s) {
+    const end = s.ended_at ? Date.parse(s.ended_at) : now();
+    const sec = Math.max(0, Math.floor((end - Date.parse(s.started_at)) / 1000)), p = (n) => String(n).padStart(2, '0');
+    $('elapsed').textContent = `${p(Math.floor(sec / 3600))}:${p(Math.floor(sec % 3600 / 60))}:${p(sec % 60)}`;
+    const o = openStage();
+    $('stageFor').textContent = o ? `${Math.floor((now() - Date.parse(o.t_start)) / 1000)} s` : '';
+    if (!s.ended_at && (sec % TREND_STEP_S) === 0) drawTrend();   // time axis keeps moving through a gap
+  }
+  renderMed();
+}
+
+// ============================================================================
+// Wire up
+// ============================================================================
+(function init() {
+  for (const [value, text] of FEELINGS) { const b = document.createElement('button'); b.textContent = text; b.disabled = true;
+    b.onclick = () => { const n = $('note').value.trim(); addLabel('feeling', value, n); $('note').value = ''; }; $('feelings').appendChild(b); }
+  for (const st of STAGES) { const b = document.createElement('button'); b.textContent = st; b.dataset.stage = st; b.disabled = true;
+    b.onclick = st === 'other…' ? () => { const v = (prompt('name this block (e.g. slow breathing 2-3/min)') || '').trim(); if (v) setStage(v); }
+                                : () => setStage(st);
+    $('stages').appendChild(b); }
+  $('btnNote').onclick = () => { const n = $('note').value.trim(); if (n) { addLabel('note', '', n); $('note').value = ''; } };
+  $('btnConnect').onclick = connect; $('btnDisconnect').onclick = disconnect;
+  $('btnStart').onclick = startSession; $('btnStop').onclick = stopSession; $('btnDiscard').onclick = discardSession;
+  $('btnJSON').onclick = () => saveFile(S.session.session_id + '.json', exportJSON(), 'application/json');
+  $('btnCSV').onclick = () => saveFile(S.session.session_id + '.csv', exportCSV(), 'text/csv');
+  $('btnCopy').onclick = copyJSON;
+  $('btnBreath').onclick = toggleBreath;
+  $('btnMed').onclick = enterMed; $('medExit').onclick = exitMed;
+  $('medSound').onclick = () => { S.sound = !S.sound; $('medSound').textContent = 'sound: ' + (S.sound ? 'on' : 'off'); };
+  renderRateChips();
+  setInterval(tickElapsed, 1000);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && S.med) exitMed(); });
+  window.addEventListener('resize', () => { renderStats(); drawTrend(); });
+
+  selfTest();
+  if (!navigator.bluetooth) banner('bad', 'This browser has no Web Bluetooth. On iPhone install <b>Bluefy — Web BLE Browser</b> and open this URL there. On Mac use Chrome.');
+  else if (!window.isSecureContext) banner('bad', 'Not a secure context: Web Bluetooth needs https:// or http://localhost. A file:// or plain http://192.168… page will not connect.');
+  if (!('wakeLock' in navigator)) banner('warn', 'No Wake Lock API here — the screen will sleep mid-session. iPhone: Settings → Display & Brightness → Auto-Lock → Never (for today).', 'wl');
+  log('platform ' + platformString());
+  renderSession();
+  offerRecovery();
+})();
+</script>
+</body>
+</html>
