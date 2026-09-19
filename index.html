@@ -132,11 +132,16 @@
 <!-- Session trend: rolling RMSSD + HR over the whole session, stages shaded -->
 <div class="card">
   <div class="row" style="justify-content: space-between;">
-    <span>Session trend — RMSSD (60 s rolling) with stages</span>
-    <span class="muted" style="font-size:13px;">HR dashed, right axis</span>
+    <span>Session trend, with stages</span>
+  </div>
+  <div class="row" style="gap:14px; font-size:13px; margin-top:4px;">
+    <span><b style="color:#1f5f8b">━</b> RMSSD</span>
+    <span><b style="color:#7fb0d3">━</b> SDNN</span>
+    <span><span style="color:#9a9890">┅</span> heart rate <span class="muted">(right axis)</span></span>
+    <span class="muted">ms on the left</span>
   </div>
   <canvas id="trend" width="600" height="170" style="height:170px;"></canvas>
-  <div class="muted" style="font-size:13px; margin-top:6px;">Per block, medians of the rolling 60 s values, skipping each block's first minute (window still mixed). Updates every 5 s.</div>
+  <div class="muted" style="font-size:13px; margin-top:6px;">RMSSD, SDNN and HR are medians of the rolling 60 s values, skipping each block's first minute. Breathing rate and swing come from the block's own beats. Suspect beats are excluded from all of it. A block under 90 s is not measured — a number from 20 s of data would look the same as a real one.</div>
   <table class="blocks" id="blocks"></table>
 </div>
 
@@ -247,6 +252,11 @@ const IN_FRACTION = 0.4;                          // 4 s in / 6 s out at 6/min, 
 const RR_MIN_MS = 300, RR_MAX_MS = 2000, RR_JUMP = 0.20;
 const ROLL_S = 60, SPARK_S = 120;
 const STALL_MS = 5000;   // notifications come every ~1 s; a hole this long means the page was asleep
+// A block shorter than this cannot fill one rolling window plus a margin, so its
+// numbers would be noise wearing the same typeface as a real measurement.
+const MIN_BLOCK_S = 90;
+const HIDE_BLOCK_S = 30;          // stage switches leave 4-8 s slivers; don't list them
+const BR_MIN = 2, BR_MAX = 30;    // breaths/min outside this is a drift, not a breath
 
 // ============================================================================
 // 0x2A37 Heart Rate Measurement parser. Pure, so the self-test below can pin
@@ -564,6 +574,14 @@ function breathRate(rr, tEnd, spanS = 120) {
   const pts = [];
   for (let i = rr.length - 1; i >= 0; i--) { if (tEnd - rr[i].t_ms > spanS * 1000) break; pts.push(rr[i]); }
   pts.reverse();
+  return breathRateOf(pts);
+}
+
+// The same measurement over an arbitrary run of beats, so a block can be read
+// from its own data instead of from a window that reaches into the block before
+// it. Returns null when the beats cannot support the measurement — a number
+// here that is not really a breath is worse than no number.
+function breathRateOf(pts) {
   if (pts.length < 40 || pts[pts.length - 1].t_ms - pts[0].t_ms < 60000) return null;
   const fs = 4, t0 = pts[0].t_ms, n = Math.floor((pts[pts.length - 1].t_ms - t0) / 1000 * fs);
   const y = new Float64Array(n);
@@ -584,11 +602,16 @@ function breathRate(rr, tEnd, spanS = 120) {
     for (let k = 0; k < n; k++) { const w = 0.5 - 0.5 * Math.cos(2 * Math.PI * k / (n - 1)), ang = 2 * Math.PI * f * k / fs; re += y[k] * w * Math.cos(ang); im -= y[k] * w * Math.sin(ang); }
     const P = re * re + im * im; if (P > bestP) { bestP = P; best = f; }
   }
+  const bpm = best * 60;
+  // 1.5 breaths/min is one breath every 40 s. That is a slow drift in heart
+  // rate being read as a breath, and it is how a 1.4-minute block came to
+  // report the largest swing in the table.
+  if (!(bpm >= BR_MIN && bpm <= BR_MAX)) return null;
   const sm = [];
   for (let i = 2; i < pts.length - 2; i++) sm.push((pts[i - 2].rr_ms + pts[i - 1].rr_ms + pts[i].rr_ms + pts[i + 1].rr_ms + pts[i + 2].rr_ms) / 5);
   sm.sort((a, b) => a - b);
   const swing = sm.length > 10 ? sm[Math.floor(sm.length * 0.95)] - sm[Math.floor(sm.length * 0.05)] : NaN;
-  return { bpm: best * 60, period: 1 / best, swing };
+  return { bpm, period: 1 / best, swing };
 }
 
 // One trend point every TREND_STEP_S of beat time: RMSSD/SDNN/HR over the trailing
@@ -602,10 +625,20 @@ function advanceTrend() {
     const lastT = S.trend.length ? S.trend[S.trend.length - 1].t : Date.parse(s.started_at) + (ROLL_S - TREND_STEP_S) * 1000;
     if (t - lastT < TREND_STEP_S * 1000) continue;
     while (S.trendStart < S.trendCursor && t - rr[S.trendStart].t_ms > ROLL_S * 1000) S.trendStart++;
-    const win = []; for (let i = S.trendStart; i <= S.trendCursor; i++) win.push(rr[i].rr_ms);
-    if (win.length < 10) continue;
+    // Suspect beats are excluded here, not merely flagged: one dropped beat read
+    // as a 31-second interval turned a wearer's rest block from 32 ms to 68 ms.
+    // A successive difference is only used when both of its beats are clean.
+    const win = [], diffs = [];
+    for (let i = S.trendStart; i <= S.trendCursor; i++) {
+      const b = rr[i];
+      if (b.suspect) continue;
+      if (win.length && !rr[i - 1].suspect) diffs.push(b.rr_ms - rr[i - 1].rr_ms);
+      win.push(b.rr_ms);
+    }
+    if (win.length < 10 || diffs.length < 5) continue;
     const d = breathRate(rr, t);
-    S.trend.push({ t, rmssd: rmssd(win), sdnn: sdnn(win), hr: 60000 / (win.reduce((a, b) => a + b, 0) / win.length),
+    S.trend.push({ t, rmssd: Math.sqrt(diffs.reduce((a, v) => a + v * v, 0) / diffs.length),
+                   sdnn: sdnn(win), hr: 60000 / (win.reduce((a, b) => a + b, 0) / win.length),
                    br: d ? d.bpm : NaN, swing: d ? d.swing : NaN });
     if (d) S.derived = d;
     added = true;
@@ -641,8 +674,12 @@ function drawTrend() {
   for (const st of s.stages) {
     const a = x(Date.parse(st.t_start)), b = x(st.t_end ? Date.parse(st.t_end) : t1);
     g.fillStyle = stageColour(st.stage); g.fillRect(a, padT - 12, Math.max(1, b - a), H - padT - padB + 12);
-    if (b - a > 40) { g.fillStyle = '#4a4a46'; g.save(); g.beginPath(); g.rect(a, 0, b - a, padT); g.clip();
-                      g.fillText(st.stage.replace(' 6/min', ''), a + 3, padT - 4); g.restore(); }
+    // Nine blocks in eighteen minutes used to print nine overlapping truncated
+    // labels. Draw the short form, and only when it actually fits the band.
+    const short = st.stage.replace('paced breathing ', '').replace('/min', '');
+    if (b - a > g.measureText(short).width + 8) {
+      g.fillStyle = '#4a4a46'; g.fillText(short, a + 3, padT - 4);
+    }
   }
   // gaps
   g.fillStyle = 'rgba(179,38,30,0.12)';
@@ -688,13 +725,24 @@ function renderBlocks() {
   const rows = [];
   for (const st of s.stages) {
     const a = Date.parse(st.t_start), b = st.t_end ? Date.parse(st.t_end) : Infinity;
+    const endT = st.t_end ? Date.parse(st.t_end) : now();
+    const secs = (endT - a) / 1000;
+    if (secs < HIDE_BLOCK_S) continue;                 // a sliver between two stage taps
+    if (secs < MIN_BLOCK_S) { rows.push({ stage: st.stage, dur: secs / 60, short: true }); continue; }
     const pts = S.trend.filter(p => p.t >= a + ROLL_S * 1000 && p.t < b);
-    const dur = ((st.t_end ? Date.parse(st.t_end) : now()) - a) / 60000;
-    rows.push({ stage: st.stage, dur, n: pts.length, rmssd: med(pts.map(p => p.rmssd)), sdnn: med(pts.map(p => p.sdnn)), hr: med(pts.map(p => p.hr)),
-                br: med(pts.map(p => p.br).filter(Number.isFinite)), swing: med(pts.map(p => p.swing).filter(Number.isFinite)) });
+    // Breathing rate and swing come from this block's own beats. Taking them
+    // from the rolling trend let a 1.4-minute block inherit the block before it.
+    const own = s.rr.filter(r => r.t_ms >= a && r.t_ms < b && !r.suspect);
+    const d = breathRateOf(own);
+    rows.push({ stage: st.stage, dur: secs / 60, n: pts.length,
+                rmssd: med(pts.map(p => p.rmssd)), sdnn: med(pts.map(p => p.sdnn)), hr: med(pts.map(p => p.hr)),
+                br: d ? d.bpm : NaN, swing: d ? d.swing : NaN });
   }
+  if (!rows.length) { tb.innerHTML = ''; return; }
   tb.innerHTML = '<tr><th>block</th><th>min</th><th>RMSSD</th><th>SDNN</th><th>HR</th><th>breaths/min</th><th>swing ms</th></tr>' +
-    rows.map(r => `<tr><td>${r.stage}</td><td>${r.dur.toFixed(1)}</td><td>${fmt(r.rmssd)}</td><td>${fmt(r.sdnn)}</td><td>${fmt(r.hr, 0)}</td><td>${fmt(r.br)}</td><td>${fmt(r.swing, 0)}</td></tr>`).join('');
+    rows.map(r => r.short
+      ? `<tr><td>${r.stage}</td><td>${r.dur.toFixed(1)}</td><td colspan="5" style="text-align:left; color:var(--muted)">under ${MIN_BLOCK_S} s — too short to measure</td></tr>`
+      : `<tr><td>${r.stage}</td><td>${r.dur.toFixed(1)}</td><td>${fmt(r.rmssd)}</td><td>${fmt(r.sdnn)}</td><td>${fmt(r.hr, 0)}</td><td>${fmt(r.br)}</td><td>${fmt(r.swing, 0)}</td></tr>`).join('');
 }
 
 function renderStats() {
