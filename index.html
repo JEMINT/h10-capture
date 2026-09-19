@@ -74,6 +74,15 @@
   .med .cue { font-size: 34px; font-weight: 600; margin-top: 22px; min-height: 42px; letter-spacing: .02em; }
   .med .cnt { font-size: 17px; color: #9fb3c4; font-variant-numeric: tabular-nums; min-height: 22px; }
   .med .bottom { font-size: 16px; color: #9fb3c4; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.6; }
+  /* Marking strip: you should never have to leave the calm view to say what is
+     happening. Muted until touched, so it does not pull the eye mid-sit. */
+  .med .marks { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; opacity: .55; transition: opacity .2s; }
+  .med .marks:hover, .med .marks:focus-within { opacity: 1; }
+  .med .marks .row { justify-content: center; }
+  .med .marks button { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; min-height: 44px; font-size: 15px; flex: 0 0 auto; }
+  .med .marks input[type=text] { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; min-height: 44px; font-size: 15px; }
+  .med .marks input::placeholder { color: #6b8299; }
+  .med .marks .said { font-size: 13px; color: #6aa9d8; text-align: center; min-height: 18px; }
   .med .bottom b { color: #fff; font-size: 22px; font-weight: 600; }
   table.blocks { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; font-variant-numeric: tabular-nums; }
   table.blocks th, table.blocks td { text-align: right; padding: 4px 6px; border-top: 1px solid var(--line); }
@@ -141,7 +150,7 @@
     <span class="muted">ms on the left</span>
   </div>
   <canvas id="trend" width="600" height="170" style="height:170px;"></canvas>
-  <div class="muted" style="font-size:13px; margin-top:6px;">RMSSD, SDNN and HR are medians of the rolling 60 s values, skipping each block's first minute. Breathing rate and swing come from the block's own beats. Suspect beats are excluded from all of it. A block under 90 s is not measured — a number from 20 s of data would look the same as a real one.</div>
+  <div class="muted" style="font-size:13px; margin-top:6px;">RMSSD, SDNN and HR are medians of the rolling 60 s values, skipping each block's first minute. Breathing rate, swing and the HR low/high come from the block's own beats — the rolling medians average the swing away. Suspect beats are excluded from all of it. A block under 90 s is not measured — a number from 20 s of data would look the same as a real one.</div>
   <table class="blocks" id="blocks"></table>
 </div>
 
@@ -210,6 +219,14 @@
     <div class="cnt"></div>
     <div class="cnt" id="sweepText"></div>
     <div class="cnt" id="derivedText" style="margin-top:14px; font-size:19px; color:#dfe8ef;"></div>
+  </div>
+  <div class="marks">
+    <div class="row" id="medFeelings"></div>
+    <div class="row">
+      <input id="medNote" type="text" placeholder="a word about now — breath gone, restless, peace…" autocomplete="off">
+      <button id="medAddNote">Note</button>
+    </div>
+    <div class="said" id="medSaid"></div>
   </div>
   <div class="bottom">
     RMSSD <b id="medRmssd">—</b> ms &nbsp;·&nbsp; SDNN <b id="medSdnn">—</b> ms &nbsp;·&nbsp; HR <b id="medHr">—</b><br>
@@ -734,15 +751,26 @@ function renderBlocks() {
     // from the rolling trend let a 1.4-minute block inherit the block before it.
     const own = s.rr.filter(r => r.t_ms >= a && r.t_ms < b && !r.suspect);
     const d = breathRateOf(own);
+    // Lowest and highest heart rate reached inside the block. Taken from a
+    // 5-beat smoothed series so one odd beat cannot set either end, and from
+    // the block's own beats rather than from the 60 s rolling medians — those
+    // average the swing away, which is the part worth seeing.
+    let hrLo = NaN, hrHi = NaN;
+    if (own.length >= 5) {
+      const sm = [];
+      for (let i = 2; i < own.length - 2; i++)
+        sm.push((own[i-2].rr_ms + own[i-1].rr_ms + own[i].rr_ms + own[i+1].rr_ms + own[i+2].rr_ms) / 5);
+      if (sm.length) { hrLo = 60000 / Math.max(...sm); hrHi = 60000 / Math.min(...sm); }
+    }
     rows.push({ stage: st.stage, dur: secs / 60, n: pts.length,
                 rmssd: med(pts.map(p => p.rmssd)), sdnn: med(pts.map(p => p.sdnn)), hr: med(pts.map(p => p.hr)),
-                br: d ? d.bpm : NaN, swing: d ? d.swing : NaN });
+                hrLo, hrHi, br: d ? d.bpm : NaN, swing: d ? d.swing : NaN });
   }
   if (!rows.length) { tb.innerHTML = ''; return; }
-  tb.innerHTML = '<tr><th>block</th><th>min</th><th>RMSSD</th><th>SDNN</th><th>HR</th><th>breaths/min</th><th>swing ms</th></tr>' +
+  tb.innerHTML = '<tr><th>block</th><th>min</th><th>RMSSD</th><th>SDNN</th><th>HR avg</th><th>HR low</th><th>HR high</th><th>breaths/min</th><th>swing ms</th></tr>' +
     rows.map(r => r.short
-      ? `<tr><td>${r.stage}</td><td>${r.dur.toFixed(1)}</td><td colspan="5" style="text-align:left; color:var(--muted)">under ${MIN_BLOCK_S} s — too short to measure</td></tr>`
-      : `<tr><td>${r.stage}</td><td>${r.dur.toFixed(1)}</td><td>${fmt(r.rmssd)}</td><td>${fmt(r.sdnn)}</td><td>${fmt(r.hr, 0)}</td><td>${fmt(r.br)}</td><td>${fmt(r.swing, 0)}</td></tr>`).join('');
+      ? `<tr><td>${r.stage}</td><td>${r.dur.toFixed(1)}</td><td colspan="7" style="text-align:left; color:var(--muted)">under ${MIN_BLOCK_S} s — too short to measure</td></tr>`
+      : `<tr><td>${r.stage}</td><td>${r.dur.toFixed(1)}</td><td>${fmt(r.rmssd)}</td><td>${fmt(r.sdnn)}</td><td>${fmt(r.hr, 0)}</td><td>${fmt(r.hrLo, 0)}</td><td>${fmt(r.hrHi, 0)}</td><td>${fmt(r.br)}</td><td>${fmt(r.swing, 0)}</td></tr>`).join('');
 }
 
 function renderStats() {
@@ -1123,8 +1151,18 @@ async function exitMed() {
   else if (S.session && !S.session.ended_at && (openStage() || {}).stage === 'meditation') { await setStage('unlabelled'); await addLabel('guide', 'off', ''); }
   renderRateChips();
 }
+let medSaidTimer = null;
+function medSaid(text) {
+  $('medSaid').textContent = 'noted: ' + text;
+  clearTimeout(medSaidTimer);
+  medSaidTimer = setTimeout(() => { $('medSaid').textContent = ''; }, 4000);
+}
 function renderMed() {
   if (!S.med) return;
+  // Nothing can be labelled without a session to hang it on.
+  const live = !!(S.session && !S.session.ended_at);
+  document.querySelectorAll('#medFeelings button, #medAddNote').forEach(b => b.disabled = !live);
+  $('medNote').disabled = !live;
   if (!S.breathing) {
     document.querySelectorAll('.med .ring').forEach(e => e.style.transform = 'scale(0.7)');
     document.querySelectorAll('.med .cue').forEach(e => e.textContent = 'breathe as you like');
@@ -1220,6 +1258,22 @@ function tickElapsed() {
   $('btnCSV').onclick = () => saveFile(S.session.session_id + '.csv', exportCSV(), 'text/csv');
   $('btnCopy').onclick = copyJSON;
   $('btnBreath').onclick = toggleBreath;
+  // The same feeling vocabulary, inside the overlay.
+  for (const [value, text] of FEELINGS) {
+    const b = document.createElement('button'); b.textContent = text;
+    b.onclick = async () => {
+      const n = $('medNote').value.trim();
+      await addLabel('feeling', value, n);
+      $('medNote').value = ''; medSaid(`${text}${n ? ' — ' + n : ''}`);
+    };
+    $('medFeelings').appendChild(b);
+  }
+  $('medAddNote').onclick = async () => {
+    const n = $('medNote').value.trim();
+    if (!n) return;
+    await addLabel('note', '', n); $('medNote').value = ''; medSaid(n);
+  };
+  $('medNote').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('medAddNote').click(); });
   $('btnMed').onclick = enterMed; $('medExit').onclick = exitMed;
   $('medSound').onclick = () => { S.sound = !S.sound; $('medSound').textContent = 'sound: ' + (S.sound ? 'on' : 'off'); };
   renderRateChips();
