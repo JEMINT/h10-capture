@@ -198,7 +198,8 @@
     </span>
   </div>
   <div class="chips" id="rates" style="margin-top:8px;"></div>
-  <div class="muted" style="font-size:13px; margin-top:6px;">Starting the guide labels the stage <em>paced breathing N/min</em> for you; stopping it sets <em>unlabelled</em>. <em>sweep</em> steps 4.5 → 6.5/min, 2 min each — the standard search for your own resonance rate. <strong>Meditation mode</strong> starts in <em>free</em>: no pacing, sit as long as you like, breathing rate is derived from the heart and the stage is labelled <em>meditation</em>.</div>
+  <div class="banner warn" style="margin:8px 0 0;">Breathe <strong>normal-sized</strong> breaths, just slower. Filling your lungs to match a long inhale is what causes dizziness or a funny feeling around the mouth. If that happens, stop the guide and breathe normally for a minute — it passes.</div>
+  <div class="muted" style="font-size:13px; margin-top:6px;">Starting the guide labels the stage <em>paced breathing N/min</em> for you; stopping it sets <em>unlabelled</em>. <em>sweep</em> runs easiest first, 2 min per rate; <strong>⚙</strong> sets where it starts and ends. <strong>Meditation mode</strong> starts in <em>free</em>: no pacing, sit as long as you like, breathing rate is derived from the heart and the stage is labelled <em>meditation</em>.</div>
   <div class="breath" id="breathBox" hidden>
     <div class="ring"></div>
     <div class="cue">—</div>
@@ -265,7 +266,12 @@ const STAGES = ['seated rest', 'paced breathing 6/min', 'standing',
                 'office workshop', 'office meeting', 'coding', 'watching TV', 'reading',   // real-day blocks
                 'unlabelled', 'other…'];
 const RATES = [3, 4, 5, 6];                       // breaths/min presets; 'sweep' and custom are added in the UI
-const SWEEP = { rates: [4.5, 5, 5.5, 6, 6.5], stepS: 120 };
+// Every rate the sweep can visit, EASIEST FIRST. The original ran 4.5 -> 6.5,
+// so a beginner's very first minute was a 13-second breath cycle — the hardest
+// rate in the set. A 14-year-old got dizzy on it, which is over-breathing, not
+// a limit of hers. Slower breathing is harder, so the ladder climbs down.
+const SWEEP_LADDER = [8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5, 4, 3.5, 3];
+const SWEEP = { from: 6.5, to: 4.5, stepS: 120 };      // the chosen span; editable in the UI
 const IN_FRACTION = 0.4;                          // 4 s in / 6 s out at 6/min, same shape at every rate
 
 // Artefact rule from the spec: flag, never drop.
@@ -1052,9 +1058,28 @@ async function setRate(r, opts = {}) {
     await addLabel('guide', rateLabel(r), '');
   }
 }
+function sweepRates() {
+  // The ladder is easiest-first, so 'from' is the gentler end whichever way
+  // the two numbers were entered.
+  const a = SWEEP_LADDER.indexOf(SWEEP.from), b = SWEEP_LADDER.indexOf(SWEEP.to);
+  if (a < 0 || b < 0) return [6.5, 6, 5.5, 5, 4.5];
+  const [lo, hi] = a <= b ? [a, b] : [b, a];
+  return SWEEP_LADDER.slice(lo, hi + 1);
+}
+function sweepLabel() { const r = sweepRates(); return `sweep ${r[0]}→${r[r.length - 1]}`; }
 function startSweep() {
-  S.sweep = { idx: 0, t0: performance.now() };
-  setRate(SWEEP.rates[0], { keepSweep: true });
+  S.sweep = { idx: 0, t0: performance.now(), rates: sweepRates() };
+  setRate(S.sweep.rates[0], { keepSweep: true });
+}
+async function editSweep() {
+  const opts = SWEEP_LADDER.join(', ');
+  const a = parseFloat(prompt(`Start at which rate? (easiest first)\nAvailable: ${opts}`, String(SWEEP.from)));
+  if (!SWEEP_LADDER.includes(a)) return;
+  const b = parseFloat(prompt(`End at which rate?\nAvailable: ${opts}`, String(SWEEP.to)));
+  if (!SWEEP_LADDER.includes(b)) return;
+  SWEEP.from = a; SWEEP.to = b;
+  try { localStorage.setItem('h10.sweep', JSON.stringify(SWEEP)); } catch (_) {}
+  renderRateChips();
 }
 function beep(freq) {
   if (!S.sound || !S.med) return;
@@ -1073,10 +1098,11 @@ function breathStep(ts) {
   if (!S.breathing) return;
   if (!S.breathT0) S.breathT0 = ts;
   if (S.sweep) {
-    const el = (ts - S.sweep.t0) / 1000, idx = Math.min(SWEEP.rates.length - 1, Math.floor(el / SWEEP.stepS));
-    if (idx !== S.sweep.idx) { S.sweep.idx = idx; setRate(SWEEP.rates[idx], { keepSweep: true }); S.breathT0 = ts; }
+    const rates = S.sweep.rates;
+    const el = (ts - S.sweep.t0) / 1000, idx = Math.min(rates.length - 1, Math.floor(el / SWEEP.stepS));
+    if (idx !== S.sweep.idx) { S.sweep.idx = idx; setRate(rates[idx], { keepSweep: true }); S.breathT0 = ts; }
     const left = SWEEP.stepS - (el - idx * SWEEP.stepS);
-    $('sweepText').textContent = `sweep ${idx + 1}/${SWEEP.rates.length} · ${rateLabel(SWEEP.rates[idx])} · ${Math.max(0, left).toFixed(0)} s to next`;
+    $('sweepText').textContent = `sweep ${idx + 1}/${rates.length} · ${rateLabel(rates[idx])} · ${Math.max(0, left).toFixed(0)} s to next`;
   } else $('sweepText').textContent = '';
   const cycle = 60 / S.rate, inS = cycle * IN_FRACTION;
   const ph = ((ts - S.breathT0) / 1000) % cycle;
@@ -1134,7 +1160,10 @@ function renderRateChips() {
     const go = async (fn) => { await fn(); if (inMed && !S.breathing) await startBreath(); };
     for (const r of RATES) { const b = document.createElement('button'); b.textContent = rateLabel(r);
       b.classList.toggle('active', paced && !S.sweep && S.rate === r); b.onclick = () => go(() => setRate(r)); el.appendChild(b); }
-    const sw = document.createElement('button'); sw.textContent = 'sweep 4.5–6.5'; sw.classList.toggle('active', paced && !!S.sweep); sw.onclick = () => go(startSweep); el.appendChild(sw);
+    const sw = document.createElement('button'); sw.textContent = sweepLabel();
+    sw.classList.toggle('active', paced && !!S.sweep); sw.onclick = () => go(startSweep); el.appendChild(sw);
+    const se = document.createElement('button'); se.textContent = '⚙'; se.title = 'choose the sweep range';
+    se.onclick = editSweep; el.appendChild(se);
     const cu = document.createElement('button'); cu.textContent = RATES.includes(S.rate) || S.sweep ? 'other…' : rateLabel(S.rate) + ' ✎';
     cu.classList.toggle('active', paced && !S.sweep && !RATES.includes(S.rate));
     cu.onclick = () => { const v = parseFloat(prompt('breaths per minute (e.g. 2.5)', String(S.rate))); if (v > 0.5 && v <= 30) go(() => setRate(v)); };
@@ -1266,6 +1295,8 @@ function tickElapsed() {
   $('btnJSON').onclick = () => saveFile(S.session.session_id + '.json', exportJSON(), 'application/json');
   $('btnCSV').onclick = () => saveFile(S.session.session_id + '.csv', exportCSV(), 'text/csv');
   $('btnCopy').onclick = copyJSON;
+  try { const sv = JSON.parse(localStorage.getItem('h10.sweep') || 'null');
+        if (sv && SWEEP_LADDER.includes(sv.from) && SWEEP_LADDER.includes(sv.to)) { SWEEP.from = sv.from; SWEEP.to = sv.to; } } catch (_) {}
   $('btnBreath').onclick = toggleBreath;
   // The same feeling vocabulary, inside the overlay.
   for (const [value, text] of FEELINGS) {
