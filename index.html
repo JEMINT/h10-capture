@@ -61,22 +61,24 @@
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chips button { min-height: 40px; font-size: 15px; padding: 6px 12px; flex: 0 0 auto; }
   .chips button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-  /* Meditation mode: everything gone except the circle, the cue and three numbers. */
-  .med { position: fixed; inset: 0; z-index: 50; background: #0f1a24; color: #dfe8ef; display: flex; flex-direction: column;
-    justify-content: space-between; padding: max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)); }
+  /* Meditation mode sits inside the breathing card rather than covering the
+     page. Full screen hid the connection bar, and a strap that drops mid-sit
+     has to be visible the moment it happens. */
+  .med { background: #0f1a24; color: #dfe8ef; display: flex; flex-direction: column; gap: 6px;
+    border-radius: 12px; padding: 12px 14px; margin-top: 10px; }
   .med .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
   .med .chips button { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; }
   .med .chips button.active { background: #6aa9d8; color: #0f1a24; border-color: #6aa9d8; }
   .med button.small { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; }
-  .med .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; flex: 1; }
-  .med .ring { width: min(62vw, 320px); height: min(62vw, 320px); border-radius: 50%;
+  .med .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2px 0; }
+  .med .ring { width: min(40vw, 180px); height: min(40vw, 180px); border-radius: 50%;
     background: radial-gradient(circle, #8fc4ea 0%, #2a6f9e 70%, #1b4c6e 100%); transform: scale(0.55); }
-  .med .cue { font-size: 34px; font-weight: 600; margin-top: 22px; min-height: 42px; letter-spacing: .02em; }
+  .med .cue { font-size: 26px; font-weight: 600; margin-top: 12px; min-height: 32px; letter-spacing: .02em; }
   .med .cnt { font-size: 17px; color: #9fb3c4; font-variant-numeric: tabular-nums; min-height: 22px; }
-  .med .bottom { font-size: 16px; color: #9fb3c4; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.6; }
+  .med .bottom { font-size: 15px; color: #9fb3c4; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.45; }
   /* Marking strip: you should never have to leave the calm view to say what is
      happening. Muted until touched, so it does not pull the eye mid-sit. */
-  .med .marks { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; opacity: .55; transition: opacity .2s; }
+  .med .marks { display: flex; flex-direction: column; gap: 6px; opacity: .55; transition: opacity .2s; }
   .med .marks:hover, .med .marks:focus-within { opacity: 1; }
   .med .marks .row { justify-content: center; }
   .med .marks button { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; min-height: 44px; font-size: 15px; flex: 0 0 auto; }
@@ -202,9 +204,7 @@
     <div class="cue">—</div>
     <div class="cnt"></div>
   </div>
-</div>
-
-<!-- Meditation mode overlay -->
+<!-- Meditation mode: inline, so the connection bar above stays visible -->
 <div class="med" id="med" hidden>
   <div class="top">
     <div class="chips" id="medRates"></div>
@@ -230,9 +230,12 @@
   </div>
   <div class="bottom">
     RMSSD <b id="medRmssd">—</b> ms &nbsp;·&nbsp; SDNN <b id="medSdnn">—</b> ms &nbsp;·&nbsp; HR <b id="medHr">—</b><br>
-    <span id="medStage">—</span> <span id="medStageFor"></span> &nbsp;·&nbsp; session <span id="medElapsed">00:00:00</span> &nbsp;·&nbsp; <span id="medRec"></span>
+    <span id="medStage">—</span> <span id="medStageFor"></span> &nbsp;·&nbsp; session <span id="medElapsed">00:00:00</span> &nbsp;·&nbsp; <span id="medRec"></span><br>
+    strap: <span id="medConn">—</span>
   </div>
 </div>
+</div>
+
 
 <!-- Labels -->
 <div class="card">
@@ -1144,6 +1147,7 @@ function enterMed() {
   if (S.session && !S.session.ended_at) requestWakeLock();
   if (!S.breathing) startFree();          // default: no pacing, everything derived
   renderRateChips(); renderMed();
+  $('med').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 async function exitMed() {
   S.med = false; $('med').hidden = true;
@@ -1168,13 +1172,18 @@ function renderMed() {
     document.querySelectorAll('.med .cue').forEach(e => e.textContent = 'breathe as you like');
     $('sweepText').textContent = '';
     const d = S.derived;
-    $('derivedText').textContent = d ? `≈ ${d.bpm.toFixed(1)} breaths/min · ${d.period.toFixed(0)} s per breath · swing ${d.swing.toFixed(0)} ms`
+    $('derivedText').textContent = d ? `≈ ${d.bpm.toFixed(1)} breaths/min · ${d.period.toFixed(0)} s/breath · swing ${d.swing.toFixed(0)} ms`
                                      : 'reading your rhythm — first estimate after a minute';
   } else $('derivedText').textContent = S.derived ? `heart says ≈ ${S.derived.bpm.toFixed(1)} breaths/min` : '';
   $('medRmssd').textContent = $('rmssd').textContent; $('medSdnn').textContent = $('sdnn').textContent; $('medHr').textContent = $('bpm').textContent;
   const o = openStage(); $('medStage').textContent = o ? o.stage : (S.session ? 'unlabelled' : 'no session');
   $('medStageFor').textContent = $('stageFor').textContent; $('medElapsed').textContent = $('elapsed').textContent;
   $('medRec').textContent = S.session && !S.session.ended_at ? '● recording' : 'NOT RECORDING';
+  // Repeated inside the panel as well as in the bar above: a strap that drops
+  // mid-sit is the one thing worth breaking a meditation for.
+  const conn = $('connStatus').textContent;
+  $('medConn').textContent = conn;
+  $('medConn').style.color = /connected/.test(conn) ? '#6aa9d8' : '#e08a82';
 }
 
 // ============================================================================
