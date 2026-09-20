@@ -152,7 +152,7 @@
     <span class="muted">ms on the left</span>
   </div>
   <canvas id="trend" width="600" height="170" style="height:170px;"></canvas>
-  <div class="muted" style="font-size:13px; margin-top:6px;">RMSSD, SDNN and HR are medians of the rolling 60 s values, skipping each block's first minute. Breathing rate, swing and the HR low/high come from the block's own beats — the rolling medians average the swing away. Suspect beats are excluded from all of it. A block under 90 s is not measured — a number from 20 s of data would look the same as a real one.</div>
+  <div class="muted" style="font-size:13px; margin-top:6px;">RMSSD, SDNN and HR are medians of the rolling 60 s values, skipping each block's first minute. Breathing rate, swing and the HR low/high come from the block's own beats — the rolling medians average the swing away. Suspect beats are excluded from all of it. A block under 90 s is not measured. <strong>Breathing rate shows &ldquo;—&rdquo; unless two independent methods agree</strong> — a spectral peak and a count of the wave's own turning points. Guided breathing is measured to within 0.04/min; free breathing often cannot be measured at all, and a dash says so.</div>
   <table class="blocks" id="blocks"></table>
 </div>
 
@@ -283,6 +283,7 @@ const STALL_MS = 5000;   // notifications come every ~1 s; a hole this long mean
 const MIN_BLOCK_S = 90;
 const HIDE_BLOCK_S = 30;          // stage switches leave 4-8 s slivers; don't list them
 const BR_MIN = 2, BR_MAX = 30;    // breaths/min outside this is a drift, not a breath
+const BR_AGREE = 0.40;            // the spectrum and a count of the wave's maxima must land this close
 
 // ============================================================================
 // 0x2A37 Heart Rate Measurement parser. Pure, so the self-test below can pin
@@ -603,6 +604,35 @@ function breathRate(rr, tEnd, spanS = 120) {
   return breathRateOf(pts);
 }
 
+// Count the wave's own maxima. A slow drift in heart rate can capture a
+// spectral peak but cannot produce repeated maxima, so this checks the
+// spectrum rather than replacing it: less precise where a clean rhythm exists,
+// but not fooled the same way.
+function countedRateOf(pts) {
+  if (pts.length < 20) return NaN;
+  const sm = [];
+  for (let i = 1; i < pts.length - 1; i++) sm.push((pts[i-1].rr_ms + pts[i].rr_ms + pts[i+1].rr_ms) / 3);
+  const sorted = [...sm].sort((a, b) => a - b);
+  const span = sorted[Math.floor(sorted.length * 0.95)] - sorted[Math.floor(sorted.length * 0.05)];
+  for (const frac of [0.20, 0.30, 0.40]) {
+    const prom = Math.max(5, frac * span), peaks = [];
+    for (let i = 1; i < sm.length - 1; i++) {
+      if (sm[i] <= sm[i-1] || sm[i] < sm[i+1]) continue;
+      let l = sm[i], r = sm[i];
+      for (let j = i - 1; j >= 0 && sm[j] <= sm[i]; j--) l = Math.min(l, sm[j]);
+      for (let j = i + 1; j < sm.length && sm[j] <= sm[i]; j++) r = Math.min(r, sm[j]);
+      if (sm[i] - Math.max(l, r) >= prom) peaks.push(i + 1);
+    }
+    if (peaks.length > 2) {
+      const gaps = [];
+      for (let i = 1; i < peaks.length; i++) gaps.push((pts[peaks[i]].t_ms - pts[peaks[i-1]].t_ms) / 1000);
+      gaps.sort((a, b) => a - b);
+      return 60 / gaps[gaps.length >> 1];
+    }
+  }
+  return NaN;
+}
+
 // The same measurement over an arbitrary run of beats, so a block can be read
 // from its own data instead of from a window that reaches into the block before
 // it. Returns null when the beats cannot support the measurement — a number
@@ -633,6 +663,13 @@ function breathRateOf(pts) {
   // rate being read as a breath, and it is how a 1.4-minute block came to
   // report the largest swing in the table.
   if (!(bpm >= BR_MIN && bpm <= BR_MAX)) return null;
+  // Second opinion. Where the two disagree, nothing is reported: an untrained
+  // 14-year-old read 2.5 breaths/min — the same as a thirty-year practitioner —
+  // while her own trace turned over every eight seconds. A number that is wrong
+  // half the time is worse than a dash, because a dash cannot be misread.
+  const counted = countedRateOf(pts);
+  if (!(Number.isFinite(counted) && counted > 0
+        && Math.abs(bpm - counted) <= BR_AGREE * counted)) return null;
   const sm = [];
   for (let i = 2; i < pts.length - 2; i++) sm.push((pts[i - 2].rr_ms + pts[i - 1].rr_ms + pts[i].rr_ms + pts[i + 1].rr_ms + pts[i + 2].rr_ms) / 5);
   sm.sort((a, b) => a - b);
