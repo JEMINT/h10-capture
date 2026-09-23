@@ -47,8 +47,9 @@ section{padding-block:52px;border-bottom:1px solid var(--line)}
 .res{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:34px;align-items:start}
 .bars{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:end;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:34px 18px 0}
 .bar{display:grid;gap:0;justify-items:center;text-align:center}
-.bcol{width:100%;border-radius:3px 3px 0 0;background:linear-gradient(180deg,rgba(63,217,192,.28),rgba(63,217,192,.06));border:1px solid rgba(63,217,192,.28);border-bottom:0;position:relative}
-.bar.peak .bcol{background:linear-gradient(180deg,rgba(63,217,192,.80),rgba(63,217,192,.16));border-color:var(--vagal)}
+.bcol{width:100%;height:0;transition:height .85s cubic-bezier(.2,.8,.2,1);transition-delay:calc(var(--i) * 80ms);border-radius:3px 3px 0 0;background:linear-gradient(180deg,rgba(63,217,192,.28),rgba(63,217,192,.06));border:1px solid rgba(63,217,192,.28);border-bottom:0;position:relative}
+.bars.on .bcol{height:var(--h)}
+.bar.peak .bcol{box-shadow:0 0 26px rgba(63,217,192,.16);background:linear-gradient(180deg,rgba(63,217,192,.80),rgba(63,217,192,.16));border-color:var(--vagal)}
 .bval{position:absolute;top:-23px;left:0;right:0;font-family:var(--mono);font-size:13px;color:var(--dim)}
 .bar.peak .bval{color:var(--vagal);font-weight:600}
 .blab{font-family:var(--mono);font-size:13px;color:var(--muted);padding:10px 0 16px;border-top:1px solid var(--line);width:100%}
@@ -75,6 +76,10 @@ section{padding-block:52px;border-bottom:1px solid var(--line)}
 .stagehead{padding:20px 22px 16px;display:grid;gap:11px;border-bottom:1px solid var(--line)}
 .chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
 .chip{font-family:var(--cond);font-size:11px;letter-spacing:.11em;text-transform:uppercase;border:1px solid var(--line);border-radius:2px;padding:3px 8px;color:var(--muted)}
+.bpm{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-left:auto}
+.bpm b{color:var(--effort);font-weight:600}
+.bpm i{width:7px;height:7px;border-radius:50%;background:var(--effort);box-shadow:0 0 8px var(--effort);animation:beat var(--ibi,860ms) infinite}
+@keyframes beat{0%{transform:scale(.55);opacity:.45}9%{transform:scale(1.25);opacity:1}30%{transform:scale(.7);opacity:.6}100%{transform:scale(.55);opacity:.45}}
 .chip.office{border-color:rgba(242,166,61,.5);color:var(--effort)}
 .chip.meditation,.chip.protocol,.chip.practice{border-color:rgba(63,217,192,.5);color:var(--vagal)}
 .stagehead h3{font-size:clamp(19px,2.4vw,25px);font-weight:700;letter-spacing:-.01em;max-width:32ch}
@@ -120,9 +125,11 @@ ul.limits li::before{background:var(--effort)}
 footer{padding-block:34px 46px;color:var(--muted);font-size:13.5px;display:grid;gap:7px}
 
 @media (max-width:900px){
-  .res,.two,.arenas,.deck{grid-template-columns:1fr}
-  .rail{border-right:0;border-bottom:1px solid var(--line)}
-  .rail ol{display:flex;overflow-x:auto}
+  .res,.two,.arenas,.deck{grid-template-columns:minmax(0,1fr)}
+  /* without min-width:0 the nine 190px strip items set the row's min-content
+     and stretch the whole deck sideways, so the canvas draws off-screen */
+  .rail{border-right:0;border-bottom:1px solid var(--line);min-width:0}
+  .rail ol{display:flex;overflow-x:auto;min-width:0}
   .rail li{border-bottom:0;border-right:1px solid var(--line);min-width:190px}
   .rail button{border-left:0;border-bottom:2px solid transparent}
   .rail button[aria-current="true"]{border-left-color:transparent;border-bottom-color:var(--vagal)}
@@ -185,7 +192,8 @@ footer{padding-block:34px 46px;color:var(--muted);font-size:13.5px;display:grid;
     </nav>
     <div class="stage">
       <div class="stagehead">
-        <div class="chips"><span class="chip" id="chip"></span><span class="num" id="when"></span></div>
+        <div class="chips"><span class="chip" id="chip"></span><span class="num" id="when"></span>
+          <span class="bpm" id="bpm" title="average heart rate for this recording"><i></i><b class="num"></b> bpm</span></div>
         <h3 id="headline"></h3>
         <div class="pull" id="pull"></div>
       </div>
@@ -295,22 +303,35 @@ let idx = 0, timer = null;
   // top and the two either side fall away. Marking one bar would overstate the
   // precision of a two-minute-per-rate sweep.
   const inZone = r => r.swing >= 0.85 * max;
-  $('bars').innerHTML = DATA.sweep.map(r => {
+  $('bars').innerHTML = DATA.sweep.map((r, i) => {
     const h = Math.round(26 + 148 * (r.swing / max));
     return '<div class="bar' + (inZone(r) ? ' peak' : '') + '">' +
-      '<div class="bcol" style="height:' + h + 'px"><span class="bval num">' + r.swing + '</span></div>' +
+      '<div class="bcol" style="--h:' + h + 'px;--i:' + i + '"><span class="bval num">' + r.swing + '</span></div>' +
       '<div class="blab">' + r.rate + '<span style="color:var(--muted)">/min</span></div></div>';
   }).join('');
   const zone = DATA.sweep.filter(inZone).map(r => r.rate);
   $('zone').textContent = 'my zone \u00b7 ' + zone[0] + '\u2013' + zone[zone.length - 1] + ' breaths/min';
+  // the bars rise when they come into view; under reduced motion the transition
+  // is off, so adding the class simply sets them to full height at once
+  const bars = document.querySelector('.bars');
+  if (!('IntersectionObserver' in window)) { bars.classList.add('on'); }
+  else new IntersectionObserver((es, ob) => es.forEach(e => {
+    if (e.isIntersecting) { bars.classList.add('on'); ob.disconnect(); }
+  }), { threshold: 0.35 }).observe(bars);
 })();
 
-function draw(){
-  const s = DATA.sessions[idx], c = $('trace'), dpr = window.devicePixelRatio || 1;
+// ---- the trace, drawn like a monitor -----------------------------------
+// Geometry is computed once per session and cached; the animation loop only
+// redraws. A sweep reveals the line left to right with a leading pulse, then
+// settles fully drawn — the page must be readable at rest, so the animation
+// ends somewhere legible rather than looping through emptiness. A slow glint
+// then travels the finished line to keep it alive on video.
+let GEO = null, raf = 0, t0 = 0, sweep = 1, reduce = false;
+try { reduce = matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+function geometry(){
+  const s = DATA.sessions[idx], c = $('trace');
   const W = c.clientWidth || 700, H = 220;
-  c.width = W * dpr; c.height = H * dpr;
-  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
-  g.clearRect(0, 0, W, H);
   const padL = 44, padR = 44, padT = 18, padB = 26;
   let off = 0; const pts = [], bands = [];
   for (const b of s.blocks){
@@ -318,50 +339,126 @@ function draw(){
     for (const p of b.series) pts.push([off + p[0], p[1], p[2]]);
     off += b.mins;
   }
-  if (pts.length < 2) return;
+  if (pts.length < 2) return null;
   const T = Math.max(off, 1);
   const hrs = pts.map(p => p[1]), sds = pts.map(p => p[2]);
-  const hlo = Math.min(...hrs) - 3, hhi = Math.max(...hrs) + 3;
-  const slo = Math.min(...sds) - 4, shi = Math.max(...sds) + 4;
-  const x = m => padL + (m / T) * (W - padL - padR);
-  const yh = v => H - padB - (v - hlo) / (hhi - hlo) * (H - padT - padB);
-  const ys = v => H - padB - (v - slo) / (shi - slo) * (H - padT - padB);
+  const hlo = Math.min.apply(null, hrs) - 3, hhi = Math.max.apply(null, hrs) + 3;
+  const slo = Math.min.apply(null, sds) - 4, shi = Math.max.apply(null, sds) + 4;
+  return { W, H, padL, padR, padT, padB, pts, bands, T, hlo, hhi, slo, shi,
+    x: m => padL + (m / T) * (W - padL - padR),
+    yh: v => H - padB - (v - hlo) / (hhi - hlo) * (H - padT - padB),
+    ys: v => H - padB - (v - slo) / (shi - slo) * (H - padT - padB) };
+}
+
+function paint(now){
+  const g0 = GEO; if (!g0) return;
+  const c = $('trace'), dpr = window.devicePixelRatio || 1;
+  const { W, H, padL, padR, padT, padB, pts, bands, T, hhi, hlo, shi, slo, x, yh, ys } = g0;
+  if (c.width !== W * dpr) { c.width = W * dpr; c.height = H * dpr; }
+  const g = c.getContext('2d');
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, W, H);
+
+  // ECG graph paper: fine squares, every fifth heavier
+  const step = 11;
+  g.lineWidth = 1;
+  for (let i = 0, gx = padL; gx <= W - padR + 0.5; gx += step, i++){
+    g.strokeStyle = i % 5 ? 'rgba(63,217,192,.045)' : 'rgba(63,217,192,.10)';
+    g.beginPath(); g.moveTo(Math.round(gx) + .5, padT - 10); g.lineTo(Math.round(gx) + .5, H - padB); g.stroke();
+  }
+  for (let i = 0, gy = H - padB; gy >= padT - 10; gy -= step, i++){
+    g.strokeStyle = i % 5 ? 'rgba(63,217,192,.045)' : 'rgba(63,217,192,.10)';
+    g.beginPath(); g.moveTo(padL, Math.round(gy) + .5); g.lineTo(W - padR, Math.round(gy) + .5); g.stroke();
+  }
+
   g.font = '11px "IBM Plex Mono", monospace';
   bands.forEach((bd, i) => {
     const a = x(bd.a), w = x(bd.b) - a;
-    g.fillStyle = i % 2 ? 'rgba(255,255,255,.035)' : 'rgba(255,255,255,.012)';
+    g.fillStyle = i % 2 ? 'rgba(255,255,255,.040)' : 'rgba(255,255,255,.014)';
     g.fillRect(a, padT - 10, Math.max(1, w), H - padT - padB + 10);
     if (w > 76){
       g.fillStyle = '#7690a5'; g.save(); g.beginPath(); g.rect(a, 0, w, padT); g.clip();
-      g.fillText(bd.name.replace('paced breathing ', '').replace(' — project work and scope', ''), a + 5, padT - 3);
+      g.fillText(bd.name.replace('paced breathing ', '').replace(' \u2014 project work and scope', ''), a + 5, padT - 3);
       g.restore();
     }
   });
-  const line = (f, col, wd) => {
-    g.strokeStyle = col; g.lineWidth = wd; g.beginPath();
+
+  const cut = padL + sweep * (W - padL - padR);
+  const seg = (f, col, wd, glow) => {
+    g.save();
+    g.beginPath(); g.rect(padL - 1, 0, Math.max(0, cut - padL + 1), H); g.clip();
+    g.shadowColor = col; g.shadowBlur = glow; g.strokeStyle = col; g.lineWidth = wd;
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    g.beginPath();
     pts.forEach((p, i) => i ? g.lineTo(x(p[0]), f(p)) : g.moveTo(x(p[0]), f(p)));
-    g.stroke();
+    g.stroke(); g.restore();
   };
-  line(p => ys(p[2]), '#3fd9c0', 1.6);
-  line(p => yh(p[1]), '#f2a63d', 2);
+  seg(p => ys(p[2]), '#3fd9c0', 1.6, 6);
+  seg(p => yh(p[1]), '#f2a63d', 2, 9);
+
+  // leading pulse while sweeping
+  if (sweep < 1){
+    let k = 0; while (k < pts.length - 1 && pts[k + 1][0] < sweep * T) k++;
+    g.save(); g.shadowColor = '#f2a63d'; g.shadowBlur = 16;
+    g.fillStyle = '#ffd79a'; g.beginPath(); g.arc(cut, yh(pts[k][1]), 3.4, 0, Math.PI * 2); g.fill();
+    g.restore();
+    g.strokeStyle = 'rgba(242,166,61,.35)'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(cut, padT - 6); g.lineTo(cut, H - padB); g.stroke();
+  } else if (!reduce){
+    // a slow glint travelling the finished line
+    const gm = (((now - t0) % 5200) / 5200) * T;
+    let k = 0; while (k < pts.length - 1 && pts[k + 1][0] < gm) k++;
+    const lead = Math.min(T, gm), tail = Math.max(0, gm - T * 0.07);
+    g.save();
+    g.beginPath(); g.rect(x(tail), 0, Math.max(0, x(lead) - x(tail)), H); g.clip();
+    g.shadowColor = '#f2a63d'; g.shadowBlur = 14;
+    g.strokeStyle = 'rgba(255,215,154,.85)'; g.lineWidth = 2.4; g.lineJoin = 'round'; g.lineCap = 'round';
+    g.beginPath(); pts.forEach((q, i) => i ? g.lineTo(x(q[0]), yh(q[1])) : g.moveTo(x(q[0]), yh(q[1])));
+    g.stroke(); g.restore();
+    g.save(); g.shadowColor = '#ffd79a'; g.shadowBlur = 10;
+    g.fillStyle = '#fff3dd'; g.beginPath(); g.arc(x(pts[k][0]), yh(pts[k][1]), 2.4, 0, Math.PI * 2);
+    g.fill(); g.restore();
+  }
+
   g.fillStyle = '#f2a63d'; g.fillText(Math.round(hhi), 6, padT + 8); g.fillText(Math.round(hlo), 6, H - padB);
   g.textAlign = 'right'; g.fillStyle = '#3fd9c0';
   g.fillText(Math.round(shi), W - 6, padT + 8); g.fillText(Math.round(slo), W - 6, H - padB);
   g.textAlign = 'left'; g.fillStyle = '#7690a5';
   const tick = T <= 12 ? 2 : T <= 30 ? 5 : 15;
   for (let m = 0; m <= T; m += tick) g.fillText(m + 'm', x(m) - 7, H - 8);
+
   bands.forEach(bd => {
     if (!bd.noted) return;
     const mid = x((bd.a + bd.b) / 2);
+    if (mid > cut) return;
     g.strokeStyle = '#ff7a68'; g.lineWidth = 1; g.setLineDash([3, 3]);
     g.beginPath(); g.moveTo(mid, padT); g.lineTo(mid, H - padB); g.stroke(); g.setLineDash([]);
-    g.fillStyle = '#ff7a68'; g.beginPath(); g.arc(mid, padT + 3, 3.5, 0, Math.PI * 2); g.fill();
+    g.save(); g.shadowColor = '#ff7a68'; g.shadowBlur = 8;
+    g.fillStyle = '#ff7a68'; g.beginPath(); g.arc(mid, padT + 3, 3.5, 0, Math.PI * 2); g.fill(); g.restore();
   });
+}
+
+function loop(now){
+  if (!t0) t0 = now;
+  if (sweep < 1) sweep = Math.min(1, (now - t0) / 1500);
+  paint(now);
+  raf = requestAnimationFrame(loop);
+}
+
+function draw(restart){
+  GEO = geometry();
+  if (restart){ sweep = reduce ? 1 : 0; t0 = 0; }
+  cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(loop);
 }
 
 function render(){
   const s = DATA.sessions[idx];
   $('chip').textContent = s.chip; $('chip').className = 'chip ' + s.chip;
+  // the indicator beats at this recording's own average rate — a real number, not decoration
+  const bpm = s.blocks.reduce((a, b) => a + b.hr * b.mins, 0) / s.blocks.reduce((a, b) => a + b.mins, 0);
+  $('bpm').querySelector('b').textContent = bpm.toFixed(0);
+  $('bpm').style.setProperty('--ibi', Math.round(60000 / bpm) + 'ms');
   $('when').textContent = s.when;
   $('headline').textContent = s.headline;
   $('pull').textContent = s.pull;
@@ -378,7 +475,7 @@ function render(){
   $('pos').textContent = (idx + 1) + ' / ' + DATA.sessions.length;
   Array.from(document.querySelectorAll('#rail button')).forEach((b, i) =>
     b.setAttribute('aria-current', i === idx ? 'true' : 'false'));
-  draw();
+  draw(true);
 }
 function go(n){ idx = (n + DATA.sessions.length) % DATA.sessions.length; render(); }
 
@@ -401,7 +498,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowLeft'){ e.preventDefault(); go(idx - 1); }
   if (e.key === 'ArrowRight'){ e.preventDefault(); go(idx + 1); }
 });
-addEventListener('resize', draw);
+addEventListener('resize', () => draw(false));
 render();
 </script>
 </body>
