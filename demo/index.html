@@ -116,11 +116,24 @@ button.t[aria-pressed="true"]{background:var(--vagal);color:#04211d;border-color
 .arena .tag{font-family:var(--cond);font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--effort)}
 .arena.v .tag{color:var(--vagal)}
 
+.strands{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:18px;margin-top:26px}
+.spine{font-size:clamp(16px,1.7vw,18.5px);line-height:1.6;color:var(--ink);max-width:94ch}
+.after{margin-top:24px;color:var(--dim);max-width:80ch}
+.dl{display:inline-block;font-family:var(--cond);letter-spacing:.07em;text-transform:uppercase;font-size:13px;background:var(--vagal);color:#04211c;font-weight:600;padding:11px 18px;border-radius:3px;text-decoration:none}
+.dl:hover{filter:brightness(1.13)}
+.lic{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-left:12px}
+pre{background:var(--ground);border:1px solid var(--line);border-radius:4px;padding:14px 16px;overflow-x:auto;margin:18px 0 0}
+pre code{font-family:var(--mono);font-size:12.5px;color:var(--dim);line-height:1.66;white-space:pre}
+.invite{margin-top:18px;color:var(--dim);font-size:14.5px}
 .two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:34px}
 .two p{color:var(--dim)}
 ul.clean{list-style:none;margin:0;padding:0;display:grid;gap:12px}
-ul.clean li{display:grid;grid-template-columns:auto 1fr;gap:12px;color:var(--dim);font-size:15px}
-ul.clean li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--vagal);margin-top:9px}
+/* The bullet is positioned, not a grid column: as a column it made every
+   <strong> and every text run its own grid item, so each li broke apart. */
+ul.clean li{position:relative;padding-left:18px;color:var(--dim);font-size:15px;line-height:1.55}
+ul.clean li::before{content:"";position:absolute;left:0;top:8px;width:6px;height:6px;border-radius:50%;background:var(--vagal)}
+ul.clean li strong{color:var(--ink);font-weight:600}
+ul.clean li code{font-family:var(--mono);font-size:13px;color:var(--vagal)}
 ul.limits li::before{background:var(--effort)}
 footer{padding-block:34px 46px;color:var(--muted);font-size:13.5px;display:grid;gap:7px}
 
@@ -281,6 +294,69 @@ footer{padding-block:34px 46px;color:var(--muted);font-size:13.5px;display:grid;
         <li><strong>The alerting rule does not work yet.</strong> It fires on focused work as readily as on discomfort,
             so it stays switched off until it can ask rather than assume.</li>
       </ul>
+    </div>
+  </div>
+</div></section>
+
+<section><div class="wrap">
+  <div class="shead" style="max-width:none">
+    <div class="eyebrow">What this is for, in the end</div>
+    <h2>A coaching offer that stands on the client’s own physiology</h2>
+    <p class="spine">Coaching in this era needs a baseline that is scientific, personal and read in context — and then
+       three things working at once: executive-coaching self-discovery toward the client’s own goals, CBT-style
+       meta-awareness so a state can be caught while it is happening rather than remembered afterwards, and pranayama,
+       asana and lifestyle change that actually move the physiology — with the same measurement, in the same setting,
+       before and after, so the change is shown rather than claimed.</p>
+  </div>
+  <div class="strands">
+    <div class="arena v"><div class="tag">The baseline</div><h3>Yours, not the average</h3>
+      <p>Ten minutes with a chest strap locates the rate your own heart answers to. Mine is five breaths a minute. The
+         guided app says six, to everyone.</p></div>
+    <div class="arena"><div class="tag">Executive coaching</div><h3>The client finds it</h3>
+      <p>The goal and the meaning stay with the person. Nothing here supplies either — twice this week it was the
+         wearer’s own words that corrected the reading, not the reverse.</p></div>
+    <div class="arena"><div class="tag">CBT-style</div><h3>Caught while it happens</h3>
+      <p>Meta-awareness is the skill: noticing the state you are in, in the minute you are in it, and having a move to
+         make. The trace trains that. It does not replace it.</p></div>
+    <div class="arena v"><div class="tag">Pranayama · asana · lifestyle</div><h3>Something that moves the body</h3>
+      <p>Breath rate, posture, sleep, load. These are what shift the physiology — practised at your number rather than
+         the textbook’s, and checked against it.</p></div>
+  </div>
+  <p class="after">And then the part that is usually missing: <strong>the same measurement, in the same meeting, weeks
+     apart.</strong> Before and after, in the setting that actually matters, so a client can see what changed instead of
+     being told that something did.</p>
+</div></section>
+
+<section id="data"><div class="wrap">
+  <div class="two">
+    <div>
+      <div class="eyebrow" style="margin-bottom:10px">The data</div>
+      <h2 style="font-size:26px;margin-bottom:14px">Every beat behind this page, in one file</h2>
+      <p>Thirteen recordings, 17,254 beat-to-beat intervals, 33 notes typed while the strap was on. Raw RR exactly as
+         the Polar H10 reported it, the labels with their timestamps, and every block metric quoted above — so the
+         derivation can be checked against the source rather than taken on trust.</p>
+      <p style="margin-top:20px"><a class="dl" href="vagus-openset-v1.json" download>Download the dataset · JSON, 318 KB</a><span class="lic">CC BY 4.0</span></p>
+      <pre><code>import json, pandas as pd
+d = json.load(open('vagus-openset-v1.json'))
+s = d['sessions'][0]
+b = pd.DataFrame(s['beats'], columns=d['beat_columns'])
+b['rr_ms'] = b.rr_raw * 1000 / 1024   # the only derivation</code></pre>
+    </div>
+    <div>
+      <div class="eyebrow" style="margin-bottom:10px">Read this before you use it</div>
+      <ul class="clean limits">
+        <li><strong>n = 1.</strong> One wearer, seven days, no control and no blinding. Observations, not results.</li>
+        <li><strong>No breath has been counted against a clock.</strong> Every breathing rate in the file is inferred
+            from the heart. Where two methods disagree the field is null and the rejected estimate sits beside it —
+            thirteen blocks out of twenty-eight.</li>
+        <li><strong>Three other wearers are deliberately absent.</strong> They agreed to personal use, not publication,
+            and one of them is a minor. Their beats are not in this file and will not be until each of them says yes.</li>
+        <li><strong>swing_ms favours longer blocks</strong> because it is a maximum. <code>median_swing_ms</code> sits
+            beside it in the file and is the fairer comparison across unequal durations.</li>
+      </ul>
+      <p class="invite">If you can break any of this, or find something in these beats the narration missed, that is the
+         most useful thing that could happen to the project —
+         <a href="mailto:peoplecoachai@gmail.com">peoplecoachai@gmail.com</a></p>
     </div>
   </div>
 </div></section>
