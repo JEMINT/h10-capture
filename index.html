@@ -5,103 +5,128 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>H10 Capture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
 <style>
-  /* One file, no framework. Plain and legible at arm's length on a phone. */
+  /* One file, no framework. Same console theme as the demo page, because the
+     live capture is shown alongside it. Dark is also the right call for a tool
+     used at 5am and pointed at a camera. Touch targets stay at 56px: this is
+     still a thing you operate one-handed with a strap on. */
   :root {
-    --bg: #f5f4ef; --card: #ffffff; --ink: #1c1c1a; --muted: #6b6a64;
-    --line: #dedcd3; --accent: #1f5f8b; --good: #2c7a4b; --warn: #b26a00;
-    --bad: #b3261e; --suspect: #d9534f;
+    --ground:#070e15; --panel:#0d1720; --panel2:#111f2b; --line:#1c2c3a;
+    --ink:#e4eff7; --dim:#a8c0d2; --muted:#7690a5;
+    --vagal:#3fd9c0; --effort:#f2a63d; --flag:#ff7a68;
+    --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --cond:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+    --sans:"IBM Plex Sans",system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+    /* kept so older rules and any inline use still resolve */
+    --bg:var(--ground); --card:var(--panel); --accent:var(--vagal);
+    --good:var(--vagal); --warn:var(--effort); --bad:var(--flag); --suspect:var(--flag);
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }   /* author display:flex would otherwise win over the UA rule */
-  html, body { margin: 0; background: var(--bg); color: var(--ink);
-    font: 17px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  html, body { margin: 0; background: var(--ground); color: var(--ink);
+    font: 17px/1.45 var(--sans); -webkit-font-smoothing: antialiased; }
   body { padding: 12px 12px calc(24px + env(safe-area-inset-bottom)); max-width: 720px; margin: 0 auto; }
-  h1 { font-size: 20px; margin: 4px 0 2px; }
+  h1 { font-family: var(--cond); font-size: 22px; letter-spacing: -.01em; margin: 4px 0 2px; }
   .sub { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
     padding: 12px; margin-bottom: 12px; }
   .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-  button { font: inherit; font-size: 18px; min-height: 56px; padding: 10px 16px; border-radius: 12px;
-    border: 1px solid var(--line); background: #fff; color: var(--ink); cursor: pointer; flex: 1 1 auto;
-    -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+  button { font: inherit; font-family: var(--cond); font-size: 17px; font-weight: 600; min-height: 56px;
+    padding: 10px 16px; border-radius: 4px; border: 1px solid var(--line); background: var(--panel2);
+    color: var(--dim); cursor: pointer; flex: 1 1 auto;
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation; transition: background .12s, color .12s; }
+  button:hover { color: var(--ink); border-color: #2a4055; }
   button:active { transform: scale(0.98); }
-  button:disabled { opacity: 0.45; cursor: default; }
-  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-  button.danger { color: var(--bad); border-color: var(--bad); }
-  button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
-  button.small { min-height: 40px; font-size: 15px; padding: 6px 12px; flex: 0 0 auto; }
-  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; }
-  .dot { width: 12px; height: 12px; border-radius: 50%; background: #bbb; display: inline-block; }
-  .dot.on { background: var(--good); } .dot.warn { background: var(--warn); } .dot.off { background: var(--bad); }
+  button:disabled { opacity: 0.35; cursor: default; }
+  button.primary { background: var(--vagal); color: #04211c; border-color: var(--vagal); }
+  button.danger { color: var(--flag); border-color: rgba(255,122,104,.5); background: rgba(255,122,104,.08); }
+  button.active { background: var(--vagal); color: #04211c; border-color: var(--vagal); }
+  button.small { min-height: 40px; font-size: 14px; padding: 6px 12px; flex: 0 0 auto; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; color: var(--dim); }
+  .dot { width: 12px; height: 12px; border-radius: 50%; background: #3a4c5e; display: inline-block; }
+  .dot.on { background: var(--vagal); box-shadow: 0 0 9px var(--vagal); }
+  .dot.warn { background: var(--effort); box-shadow: 0 0 9px var(--effort); }
+  .dot.off { background: var(--flag); }
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .stat { background: var(--bg); border-radius: 10px; padding: 8px 10px; }
-  .stat .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .stat .v { font-size: 26px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat { background: var(--ground); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; }
+  .stat .k { font-family: var(--cond); font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .13em; }
+  .stat .v { font-family: var(--mono); font-size: 26px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
   .stat .v small { font-size: 14px; font-weight: 400; color: var(--muted); }
   .stat.big { grid-column: span 3; }
-  .stat.big .v { font-size: 48px; }
-  .stat.big .v small { font-size: 16px; }
-  canvas { width: 100%; height: 110px; display: block; background: var(--bg); border-radius: 10px; margin-top: 8px; }
-  .banner { border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 15px; }
-  .banner.warn { background: #fff4e0; border: 1px solid #f0c98a; color: #6b4300; }
-  .banner.bad { background: #fde8e6; border: 1px solid #f0a8a2; color: #6b1a14; }
-  .banner.info { background: #e8f1f8; border: 1px solid #b7d2e6; color: #143a55; }
-  .banner button { min-height: 40px; font-size: 15px; margin-top: 6px; }
+  .stat.big .v { font-size: 48px; color: var(--vagal); }
+  .stat.big .v small { font-size: 16px; color: var(--muted); }
+  canvas { width: 100%; height: 110px; display: block; background: var(--ground);
+    border: 1px solid var(--line); border-radius: 4px; margin-top: 8px; }
+  .banner { border-radius: 4px; padding: 10px 12px; margin-bottom: 8px; font-size: 15px; border: 1px solid; }
+  .banner.warn { background: rgba(242,166,61,.10); border-color: rgba(242,166,61,.45); color: #f6c485; }
+  .banner.bad { background: rgba(255,122,104,.10); border-color: rgba(255,122,104,.45); color: #ffa79a; }
+  .banner.info { background: rgba(63,217,192,.09); border-color: rgba(63,217,192,.38); color: #8fe8d8; }
+  .banner button { min-height: 40px; font-size: 14px; margin-top: 6px; }
   .label-list { list-style: none; margin: 8px 0 0; padding: 0; font-size: 15px; }
   .label-list li { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
-  .label-list li .t { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
-  .label-list li .x { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .label-list li button { flex: 0 0 auto; min-height: 36px; font-size: 14px; padding: 4px 10px; }
-  input[type=text] { font: inherit; font-size: 17px; min-height: 52px; padding: 8px 12px; border-radius: 12px;
-    border: 1px solid var(--line); flex: 1 1 200px; width: 100%; }
+  .label-list li .t { color: var(--muted); font-family: var(--mono); font-size: 13px; font-variant-numeric: tabular-nums; flex: 0 0 auto; }
+  .label-list li .x { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dim); }
+  .label-list li button { flex: 0 0 auto; min-height: 36px; font-size: 13px; padding: 4px 10px; }
+  input[type=text] { font: inherit; font-size: 17px; min-height: 52px; padding: 8px 12px; border-radius: 4px;
+    border: 1px solid var(--line); background: var(--ground); color: var(--ink); flex: 1 1 200px; width: 100%; }
+  input[type=text]::placeholder { color: var(--muted); }
+  input[type=text]:focus { outline: 0; border-color: var(--vagal); }
   .breath { display: flex; flex-direction: column; align-items: center; padding: 8px 0 4px; }
-  .breath .ring { width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle, #cfe3f2 0%, #8fbde0 100%);
-    transform: scale(0.55); transition: none; }
+  .breath .ring { width: 180px; height: 180px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(63,217,192,.85) 0%, rgba(42,111,158,.55) 70%, rgba(27,76,110,.35) 100%);
+    box-shadow: 0 0 40px rgba(63,217,192,.22); transform: scale(0.55); transition: none; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-  .chips button { min-height: 40px; font-size: 15px; padding: 6px 12px; flex: 0 0 auto; }
-  .chips button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chips button { min-height: 40px; font-size: 14px; padding: 6px 12px; flex: 0 0 auto; }
+  .chips button.active { background: var(--vagal); color: #04211c; border-color: var(--vagal); }
   /* Meditation mode sits inside the breathing card rather than covering the
      page. Full screen hid the connection bar, and a strap that drops mid-sit
      has to be visible the moment it happens. */
-  .med { background: #0f1a24; color: #dfe8ef; display: flex; flex-direction: column; gap: 6px;
-    border-radius: 12px; padding: 12px 14px; margin-top: 10px; }
+  .med { background: var(--ground); color: var(--ink); display: flex; flex-direction: column; gap: 6px;
+    border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px; margin-top: 10px; }
   .med .top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: space-between; }
-  .med .chips button { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; }
-  .med .chips button.active { background: #6aa9d8; color: #0f1a24; border-color: #6aa9d8; }
-  .med button.small { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; }
+  .med .chips button { background: var(--panel2); color: var(--dim); border-color: var(--line); }
+  .med .chips button.active { background: var(--vagal); color: #04211c; border-color: var(--vagal); }
+  .med button.small { background: var(--panel2); color: var(--dim); border-color: var(--line); }
   .med .mid { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2px 0; }
   .med .ring { width: min(40vw, 180px); height: min(40vw, 180px); border-radius: 50%;
-    background: radial-gradient(circle, #8fc4ea 0%, #2a6f9e 70%, #1b4c6e 100%); transform: scale(0.55); }
-  .med .cue { font-size: 26px; font-weight: 600; margin-top: 12px; min-height: 32px; letter-spacing: .02em; }
-  .med .cnt { font-size: 17px; color: #9fb3c4; font-variant-numeric: tabular-nums; min-height: 22px; }
-  .med .bottom { font-size: 15px; color: #9fb3c4; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.45; }
+    background: radial-gradient(circle, rgba(63,217,192,.9) 0%, rgba(42,111,158,.6) 70%, rgba(27,76,110,.4) 100%);
+    box-shadow: 0 0 46px rgba(63,217,192,.25); transform: scale(0.55); }
+  .med .cue { font-family: var(--cond); font-size: 26px; font-weight: 600; margin-top: 12px; min-height: 32px; letter-spacing: .01em; }
+  .med .cnt { font-family: var(--mono); font-size: 17px; color: var(--dim); font-variant-numeric: tabular-nums; min-height: 22px; }
+  .med .bottom { font-family: var(--mono); font-size: 14px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; line-height: 1.5; }
   /* Marking strip: you should never have to leave the calm view to say what is
      happening. Muted until touched, so it does not pull the eye mid-sit. */
   .med .marks { display: flex; flex-direction: column; gap: 6px; opacity: .55; transition: opacity .2s; }
   .med .marks:hover, .med .marks:focus-within { opacity: 1; }
   .med .marks .row { justify-content: center; }
-  .med .marks button { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; min-height: 44px; font-size: 15px; flex: 0 0 auto; }
-  .med .marks input[type=text] { background: #1c2b3a; color: #dfe8ef; border-color: #33475a; min-height: 44px; font-size: 15px; }
-  .med .marks input::placeholder { color: #6b8299; }
-  .med .marks .said { font-size: 13px; color: #6aa9d8; text-align: center; min-height: 18px; }
-  .med .bottom b { color: #fff; font-size: 22px; font-weight: 600; }
-  table.blocks { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; font-variant-numeric: tabular-nums; }
-  table.blocks th, table.blocks td { text-align: right; padding: 4px 6px; border-top: 1px solid var(--line); }
+  .med .marks button { background: var(--panel2); color: var(--dim); border-color: var(--line); min-height: 44px; font-size: 14px; flex: 0 0 auto; }
+  .med .marks input[type=text] { background: var(--panel2); color: var(--ink); border-color: var(--line); min-height: 44px; font-size: 15px; }
+  .med .marks input::placeholder { color: var(--muted); }
+  .med .marks .said { font-size: 13px; color: var(--vagal); text-align: center; min-height: 18px; }
+  .med .bottom b { color: var(--vagal); font-size: 22px; font-weight: 600; }
+  /* Nine columns do not fit a phone. Scroll the table, not the page — a
+     horizontally sliding page is unusable one-handed with a strap on. */
+  .tscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 8px; }
+  .tscroll table.blocks { min-width: 460px; margin-top: 0; }
+  table.blocks { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 13px; margin-top: 8px; font-variant-numeric: tabular-nums; color: var(--dim); }
+  table.blocks th, table.blocks td { text-align: right; padding: 5px 6px; border-top: 1px solid var(--line); }
   table.blocks th:first-child, table.blocks td:first-child { text-align: left; }
-  table.blocks th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; border-top: 0; }
-  .breath .cue { font-size: 24px; font-weight: 600; margin-top: 10px; min-height: 32px; }
-  .breath .cnt { font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--muted);
+  table.blocks th { font-family: var(--cond); color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; border-top: 0; }
+  .breath .cue { font-family: var(--cond); font-size: 24px; font-weight: 600; margin-top: 10px; min-height: 32px; }
+  .breath .cnt { font-family: var(--mono); font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mono { font-family: var(--mono); font-size: 12.5px; color: var(--muted);
     white-space: pre-wrap; word-break: break-all; }
   details summary { cursor: pointer; color: var(--muted); font-size: 15px; }
-  .rec { color: var(--bad); font-weight: 600; }
-  .whisper { background: #eef4ea; border: 1px solid #9fc79a; border-radius: 12px; padding: 12px; margin-top: 10px; }
-  .whisper .w { font-size: 20px; font-weight: 600; color: #1e4d30; margin-bottom: 4px; }
+  .rec { color: var(--flag); font-weight: 600; }
+  .whisper { background: rgba(63,217,192,.08); border: 1px solid rgba(63,217,192,.42); border-radius: 6px; padding: 12px; margin-top: 10px; }
+  .whisper .w { font-family: var(--cond); font-size: 20px; font-weight: 600; color: var(--vagal); margin-bottom: 4px; }
   .whisper .why { font-size: 13px; color: var(--muted); margin-bottom: 8px; }
   .whisper .row button { min-height: 48px; }
-  .switch { display: flex; align-items: center; gap: 8px; font-size: 15px; }
-  .switch input { width: 22px; height: 22px; }
+  .switch { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--dim); }
+  .switch input { width: 22px; height: 22px; accent-color: var(--vagal); }
   .muted { color: var(--muted); }
   @media (max-width: 420px) { .grid { grid-template-columns: repeat(2, 1fr); } .stat.big { grid-column: span 2; } }
 </style>
@@ -152,14 +177,14 @@
     <span>Session trend, with stages</span>
   </div>
   <div class="row" style="gap:14px; font-size:13px; margin-top:4px;">
-    <span><b style="color:#1f5f8b">━</b> RMSSD</span>
-    <span><b style="color:#7fb0d3">━</b> SDNN</span>
-    <span><span style="color:#9a9890">┅</span> heart rate <span class="muted">(right axis)</span></span>
+    <span><b style="color:var(--vagal)">━</b> RMSSD</span>
+    <span><b style="color:#6ea8d8">━</b> SDNN</span>
+    <span><span style="color:var(--effort)">┅</span> heart rate <span class="muted">(right axis)</span></span>
     <span class="muted">ms on the left</span>
   </div>
   <canvas id="trend" width="600" height="170" style="height:170px;"></canvas>
   <div class="muted" style="font-size:13px; margin-top:6px;">RMSSD, SDNN and HR are medians of the rolling 60 s values, skipping each block's first minute. Breathing rate, swing and the HR low/high come from the block's own beats — the rolling medians average the swing away. Suspect beats are excluded from all of it. A block under 90 s is not measured. <strong>Breathing rate shows &ldquo;—&rdquo; unless two independent methods agree</strong> — a spectral peak and a count of the wave's own turning points. Guided breathing is measured to within 0.04/min; free breathing often cannot be measured at all, and a dash says so.</div>
-  <table class="blocks" id="blocks"></table>
+  <div class="tscroll"><table class="blocks" id="blocks"></table></div>
 </div>
 
 <!-- Session controls -->
@@ -369,11 +394,15 @@ const TREND_STEP_S = 5;
 // actual test. Off by default.
 const WHISPER = { text: 'Slow exhale. Four counts in, eight counts out.', checkS: 30, avgS: 600, minHistoryS: 300,
                   runNeeded: 6, cooldownS: 1200 };
-const STAGE_COLOURS = { 'seated rest': '#dff1e3', 'paced breathing 6/min': '#dbe9f6', 'standing': '#fbe8d3',
-                        'mental arithmetic': '#f8dcdc', 'walking': '#e9e0f5', 'unlabelled': '#ececea', 'meditation': '#e6e0f2',
-                        'office workshop': '#f6ecd2', 'office meeting': '#f3e3c6', 'coding': '#e2ecf3',
-                        'watching TV': '#ece6f4', 'reading': '#e7efe3' };
-function stageColour(name) { return STAGE_COLOURS[name] || (name.startsWith('paced breathing') ? '#dbe9f6' : '#efe9d6'); }
+// Stage bands on a dark ground: low-alpha tints, not pastels. Each stays
+// distinguishable behind the traces without competing with them.
+const STAGE_COLOURS = { 'seated rest': 'rgba(63,217,192,.10)', 'paced breathing 6/min': 'rgba(110,170,230,.12)',
+                        'standing': 'rgba(242,166,61,.12)', 'mental arithmetic': 'rgba(255,122,104,.12)',
+                        'walking': 'rgba(168,140,230,.12)', 'unlabelled': 'rgba(255,255,255,.035)',
+                        'meditation': 'rgba(150,130,225,.13)', 'office workshop': 'rgba(242,190,61,.11)',
+                        'office meeting': 'rgba(242,166,61,.14)', 'coding': 'rgba(110,190,220,.11)',
+                        'watching TV': 'rgba(180,140,220,.11)', 'reading': 'rgba(120,200,150,.11)' };
+function stageColour(name) { return STAGE_COLOURS[name] || (name.startsWith('paced breathing') ? 'rgba(110,170,230,.12)' : 'rgba(255,255,255,.06)'); }
 const $ = (id) => document.getElementById(id);
 
 // ============================================================================
@@ -744,10 +773,19 @@ function drawTrend() {
   if (c.width !== W * dpr || c.height !== H * dpr) { c.width = W * dpr; c.height = H * dpr; }
   const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.clearRect(0, 0, W, H);
-  g.fillStyle = '#f5f4ef'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#070e15'; g.fillRect(0, 0, W, H);
   const s = S.session, pts = S.trend;
   const padL = 34, padR = 30, padT = 16, padB = 18;
-  g.font = '11px sans-serif'; g.fillStyle = '#6b6a64';
+  // ECG graph paper, matching the demo page's traces
+  for (let i = 0, gx = padL; gx <= W - padR; gx += 9, i++) {
+    g.strokeStyle = i % 5 ? 'rgba(63,217,192,.045)' : 'rgba(63,217,192,.10)';
+    g.beginPath(); g.moveTo(Math.round(gx) + .5, padT - 12); g.lineTo(Math.round(gx) + .5, H - padB); g.stroke();
+  }
+  for (let i = 0, gy = H - padB; gy >= padT - 12; gy -= 9, i++) {
+    g.strokeStyle = i % 5 ? 'rgba(63,217,192,.045)' : 'rgba(63,217,192,.10)';
+    g.beginPath(); g.moveTo(padL, Math.round(gy) + .5); g.lineTo(W - padR, Math.round(gy) + .5); g.stroke();
+  }
+  g.font = '11px "IBM Plex Mono", monospace'; g.fillStyle = '#7690a5';
   if (!s || pts.length < 2) {
     g.fillText(s ? 'first point after 60 s of beats…' : 'start a session to see the trend', padL, H / 2);
     return;
@@ -770,38 +808,39 @@ function drawTrend() {
     // labels. Draw the short form, and only when it actually fits the band.
     const short = st.stage.replace('paced breathing ', '').replace('/min', '');
     if (b - a > g.measureText(short).width + 8) {
-      g.fillStyle = '#4a4a46'; g.fillText(short, a + 3, padT - 4);
+      g.fillStyle = '#a8c0d2'; g.fillText(short, a + 3, padT - 4);
     }
   }
   // gaps
-  g.fillStyle = 'rgba(179,38,30,0.12)';
+  g.fillStyle = 'rgba(255,122,104,0.16)';
   for (const gp of s.gaps) { const a = x(Date.parse(gp.t_start)), b = x(Date.parse(gp.t_end)); g.fillRect(a, padT, Math.max(2, b - a), H - padT - padB); }
   if (S.gapOpen) { const a = x(S.gapOpen.t_start); g.fillRect(a, padT, Math.max(2, x(t1) - a), H - padT - padB); }
 
   // HR, dashed, right axis
-  g.strokeStyle = '#9a9890'; g.lineWidth = 1; g.setLineDash([4, 3]); g.beginPath();
+  g.strokeStyle = '#f2a63d'; g.lineWidth = 1.2; g.setLineDash([4, 3]); g.beginPath();
   pts.forEach((p, i) => i ? g.lineTo(x(p.t), yh(p.hr)) : g.moveTo(x(p.t), yh(p.hr))); g.stroke(); g.setLineDash([]);
   // SDNN, thin — catches slow breathing that RMSSD is blind to
-  g.strokeStyle = '#7fb0d3'; g.lineWidth = 1.2; g.beginPath();
+  g.strokeStyle = '#6ea8d8'; g.lineWidth = 1.2; g.beginPath();
   pts.forEach((p, i) => i ? g.lineTo(x(p.t), y(p.sdnn)) : g.moveTo(x(p.t), y(p.sdnn))); g.stroke();
   // RMSSD
-  g.strokeStyle = '#1f5f8b'; g.lineWidth = 2; g.beginPath();
+  g.strokeStyle = '#3fd9c0'; g.lineWidth = 2; g.shadowColor = '#3fd9c0'; g.shadowBlur = 6; g.beginPath();
   pts.forEach((p, i) => i ? g.lineTo(x(p.t), y(p.rmssd)) : g.moveTo(x(p.t), y(p.rmssd))); g.stroke();
   const lastP = pts[pts.length - 1];
-  g.fillStyle = '#1f5f8b'; g.beginPath(); g.arc(x(lastP.t), y(lastP.rmssd), 3.5, 0, Math.PI * 2); g.fill();
+  g.shadowBlur = 0; g.fillStyle = '#8ff0e0'; g.shadowColor = '#3fd9c0'; g.shadowBlur = 10;
+  g.beginPath(); g.arc(x(lastP.t), y(lastP.rmssd), 3.5, 0, Math.PI * 2); g.fill(); g.shadowBlur = 0;
 
   // feeling taps
   for (const l of s.labels) {
     if (l.kind !== 'feeling') continue;
     const px = x(Date.parse(l.t));
-    g.strokeStyle = '#b3261e'; g.lineWidth = 1; g.beginPath(); g.moveTo(px, padT); g.lineTo(px, H - padB); g.stroke();
-    g.fillStyle = '#b3261e'; g.fillText(l.value[0].toUpperCase(), px + 2, H - padB - 3);
+    g.strokeStyle = '#ff7a68'; g.lineWidth = 1; g.beginPath(); g.moveTo(px, padT); g.lineTo(px, H - padB); g.stroke();
+    g.fillStyle = '#ff7a68'; g.fillText(l.value[0].toUpperCase(), px + 2, H - padB - 3);
   }
 
   // axes
-  g.fillStyle = '#1f5f8b'; g.fillText(Math.round(hi) + '', 2, padT + 6); g.fillText(Math.round(lo) + '', 2, H - padB);
-  g.fillStyle = '#9a9890'; g.fillText(hhi + '', W - padR + 4, padT + 6); g.fillText(hlo + '', W - padR + 4, H - padB);
-  g.fillStyle = '#6b6a64';
+  g.fillStyle = '#3fd9c0'; g.fillText(Math.round(hi) + '', 2, padT + 6); g.fillText(Math.round(lo) + '', 2, H - padB);
+  g.fillStyle = '#f2a63d'; g.fillText(hhi + '', W - padR + 4, padT + 6); g.fillText(hlo + '', W - padR + 4, H - padB);
+  g.fillStyle = '#7690a5';
   const spanMin = (t1 - t0) / 60000, tick = spanMin <= 12 ? 1 : spanMin <= 40 ? 5 : spanMin <= 120 ? 10 : 30;
   for (let m = 0; m <= spanMin; m += tick) { const px = x(t0 + m * 60000); g.fillText(m + 'm', px - 6, H - 4); }
   renderBlocks();
@@ -888,12 +927,12 @@ function drawSpark(src, last) {
   for (const b of pts) { if (b.rr_ms < lo) lo = b.rr_ms; if (b.rr_ms > hi) hi = b.rr_ms; }
   const pad = Math.max(20, (hi - lo) * 0.15); lo -= pad; hi += pad;
   const x = (t) => W - ((last - t) / (SPARK_S * 1000)) * W, y = (v) => H - ((v - lo) / (hi - lo)) * (H - 10) - 5;
-  g.strokeStyle = '#1f5f8b'; g.lineWidth = 1.5; g.beginPath();
+  g.strokeStyle = '#3fd9c0'; g.lineWidth = 1.5; g.beginPath();
   pts.forEach((b, i) => { const px = x(b.t_ms ?? b.t), py = y(b.rr_ms); i ? g.lineTo(px, py) : g.moveTo(px, py); });
   g.stroke();
-  g.fillStyle = '#d9534f';
+  g.fillStyle = '#ff7a68';
   for (const b of pts) if (b.suspect) { g.beginPath(); g.arc(x(b.t_ms ?? b.t), y(b.rr_ms), 3, 0, Math.PI * 2); g.fill(); }
-  g.fillStyle = '#6b6a64'; g.font = '11px sans-serif';
+  g.fillStyle = '#7690a5'; g.font = '11px "IBM Plex Mono", monospace';
   g.fillText(`${Math.round(hi)} ms`, 4, 12); g.fillText(`${Math.round(lo)} ms`, 4, H - 4); g.fillText('2 min', W - 34, H - 4);
 }
 
@@ -1278,7 +1317,7 @@ function renderMed() {
   // mid-sit is the one thing worth breaking a meditation for.
   const conn = $('connStatus').textContent;
   $('medConn').textContent = conn;
-  $('medConn').style.color = /connected/.test(conn) ? '#6aa9d8' : '#e08a82';
+  $('medConn').style.color = /connected/.test(conn) ? '#3fd9c0' : '#ff7a68';
 }
 
 // ============================================================================
