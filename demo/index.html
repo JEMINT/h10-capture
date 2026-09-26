@@ -123,6 +123,17 @@ button.t[aria-pressed="true"]{background:var(--vagal);color:#04211d;border-color
 .after{margin-top:24px;color:var(--dim);max-width:80ch}
 .next{margin-top:28px;background:var(--panel);border:1px solid var(--line);border-left:2px solid var(--vagal);border-radius:4px;padding:20px 22px;max-width:86ch}
 .next p{margin:0;color:var(--dim);font-size:15px}
+.ratio{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px 34px;margin:24px 0 4px}
+.ratio>div{display:grid;grid-template-columns:auto minmax(0,1fr);gap:16px;align-items:baseline;text-align:left}
+.ratio b{font-family:var(--mono);font-size:clamp(26px,3.2vw,36px);color:var(--vagal);font-weight:600;letter-spacing:-.01em}
+.ratio i{font-style:normal;color:var(--dim);font-size:15px;line-height:1.5}
+.ladder{list-style:none;margin:26px 0 0;padding:0;display:grid;gap:0;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.ladder li{display:grid;grid-template-columns:118px minmax(0,1fr);gap:18px;padding:15px 20px;background:var(--panel);border-top:1px solid var(--line);font-size:15px;color:var(--dim)}
+.ladder li:first-child{border-top:0}
+.ladder .w{font-family:var(--cond);font-size:12px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);padding-top:3px}
+.ladder li.on .w{color:var(--vagal)}
+.ladder b{color:var(--ink);font-weight:600}
+@media (max-width:620px){.ladder li{grid-template-columns:minmax(0,1fr);gap:5px}}
 .next .nextline{margin-top:12px;color:var(--ink);font-family:var(--cond);font-size:clamp(16px,1.9vw,19px);font-weight:600}
 .dl{display:inline-block;font-family:var(--cond);letter-spacing:.07em;text-transform:uppercase;font-size:13px;background:var(--vagal);color:#04211c;font-weight:600;padding:11px 18px;border-radius:3px;text-decoration:none}
 .dl:hover{filter:brightness(1.13)}
@@ -314,10 +325,55 @@ footer{padding-block:34px 46px;color:var(--muted);font-size:13.5px;display:grid;
   </div>
 </div></section>
 
+<section><div class="wrap">
+  <div class="shead" style="max-width:none">
+    <div class="eyebrow">Five · how it gets built</div>
+    <h2>Beats are free. Moments are the whole cost.</h2>
+    <p class="spine">Every recording in this project is collected for a reason, and the reason is almost never the
+       heartbeat. A strap produces beats all day for nothing. Every sentence in the corpus needed a person to notice
+       something, stop, and type it.</p>
+  </div>
+  <div class="ratio">
+    <div><b>21,535</b><i>beats, across four wearers — the cheap half, and it grows on its own.</i></div>
+    <div><b>47</b><i>sentences typed in the moment. One per 458 beats. The bottleneck, and the asset.</i></div>
+  </div>
+  <div class="strands">
+    <div class="arena"><div class="tag">The paced blocks</div><h3>An answer key</h3>
+      <p>14 blocks where a metronome set the breathing rate, so the true rate is known. Without them there is no way
+         to tell a good estimate from a merely confident one. They are how the instrument gets checked.</p></div>
+    <div class="arena"><div class="tag">The four arenas</div><h3>Range, not variety</h3>
+      <p>Desk, car, cushion, sport. Anything trained only on seated practice will be wrong at 11am on a Tuesday.
+         The arenas are the conditions the thing has to survive, not a tour.</p></div>
+    <div class="arena v"><div class="tag">The labelled moments</div><h3>The supervision</h3>
+      <p>47 sentences, each pinned to a timestamp. A wearable cannot produce this and a teacher cannot timestamp it.
+         Far too few to train on — exactly the right size to judge against.</p></div>
+    <div class="arena v"><div class="tag">The abstentions</div><h3>Knowing when to shut up</h3>
+      <p>13 blocks in 28 where two methods disagree and the page prints a dash. Saying "I don’t know" at the right
+         moment is worth more here than always having an answer.</p></div>
+  </div>
+  <ol class="ladder">
+    <li class="on"><span class="w">Now</span><span><b>Statistics.</b> Signal processing, and nine readings on this page
+      that I wrote by hand. Nothing is learned. Nothing is a model.</span></li>
+    <li><span class="w">Next</span><span><b>The reading.</b> Those two columns — what a standard app reports, what it
+      means with context — are the product, and I hand-wrote nine. At eight people and twenty sessions each that
+      stops being possible. It is also exactly what a prompted model does well, grounded in one person’s own history
+      instead of a population average.</span></li>
+    <li><span class="w">Then</span><span><b>The ask.</b> My alert rule found the right moments and could not name them.
+      A model cannot name them from the heartbeat either — but it can ask one question at that moment and read the
+      reply in the words it comes back in. That is the missing half of the whisper.</span></li>
+    <li><span class="w">The app</span><span><b>Listen. Ask. Whisper once. Read the day back.</b> Silent otherwise.
+      The strap is a stand-in; anything with clean beat timing would do.</span></li>
+  </ol>
+  <p class="after"><strong>The honest limit:</strong> 47 sentences is an evaluation set, not a training set. The first
+     version is a prompted model reading one person’s own history — not something fine-tuned, and nothing that
+     needs a population. What would change that is more people writing more sentences. Beats would not help. That is
+     the only reason the number of wearers matters.</p>
+</div></section>
+
 <section id="data"><div class="wrap">
   <div class="two">
     <div>
-      <div class="eyebrow" style="margin-bottom:10px">Five · the data</div>
+      <div class="eyebrow" style="margin-bottom:10px">Six · the data</div>
       <h2 style="font-size:26px;margin-bottom:14px">Every beat behind this page, in one file</h2>
       <p>Thirteen recordings, 17,254 beat-to-beat intervals, 33 notes typed while the strap was on. Raw RR exactly as
          the Polar H10 reported it, the labels with their timestamps, and every block metric quoted above — so the
